@@ -871,6 +871,7 @@ async def startGatheringData():
 			try:
 				await discordClient.send_message(botChannel, "Getting data")
 				getDataFromServer.getDataFromServer()
+				await asyncio.sleep(1)
 				try:
 					dataValid = getDataFromServer.validateData()	
 				except IOError as e:
@@ -886,6 +887,7 @@ async def startGatheringData():
 				await discordClient.send_message(botChannel, "Data was retreived")
 				try:
 					clashSaveData.saveData()
+					await asyncio.sleep(1)
 					lastUpdatedData = getDataFromServer.getUTCTimestamp() 
 					await discordClient.send_message(botChannel, "Data was saved")
 					try:
