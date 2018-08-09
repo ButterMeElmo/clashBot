@@ -17,6 +17,9 @@ import config_strings
 db_file = "clashData.db"
 #currentSeasonIDs = {}
 
+class NoDataDuringTimeSpanException(Exception):
+	pass
+
 def getCursorAndConnection():
 	conn = sqlite3.connect(db_file)
 	cursor = conn.cursor()
@@ -51,6 +54,38 @@ def getAllMembersTagSupposedlyInClan(cursor):
 		'''
 		)
 	return cursor.fetchall()
+
+def get_min_and_max_scanned_index_for_min_and_max_scanned_time(cursor, min_timestamp, max_timestamp):
+	query = '''SELECT scanned_data_index FROM SCANNED_DATA_TIMES WHERE time > ? and time < ?'''
+	cursor.execute(query, (min_timestamp, max_timestamp))
+	results = cursor.fetchall()
+	if len(results) == 0:
+		raise NoDataDuringTimeSpanException()
+	else:
+		min_index = min(results, key = lambda t:t[0])[0]
+		max_index = max(results, key = lambda t:t[0])[0]
+	return min_index, max_index
+
+def get_min_index_greater_than_scanned_time(cursor, min_timestamp):
+	query = '''SELECT scanned_data_index FROM SCANNED_DATA_TIMES WHERE time > ?'''
+	cursor.execute(query, (min_timestamp,))
+	results = cursor.fetchall()
+	if len(results) == 0:
+		raise NoDataDuringTimeSpanException()
+	else:
+		min_index = min(results, key = lambda t:t[0])[0]
+	return min_index
+
+def get_max_index_less_than_scanned_time(cursor, max_timestamp):
+	query = '''SELECT scanned_data_index FROM SCANNED_DATA_TIMES WHERE time < ?'''
+	cursor.execute(query, (max_timestamp,))
+	results = cursor.fetchall()
+	if len(results) == 0:
+		raise NoDataDuringTimeSpanException()
+	else:
+		max_index = max(results, key = lambda t:t[0])[0]
+	return 1
+	return max_index
 
 def removeDiscordAccountsRelatedTo(accountName):
 	cursor, conn = getCursorAndConnection()
@@ -537,17 +572,18 @@ def getAllDonationsInTimeframe(time_created, time_finished):
 		member_tag = memberTag[0]
 		member_joined_after_request_created = False
 		member_left_after_request_created = False
+		max_index = get_max_index_less_than_scanned_time(cursor, time_created)
 		query = '''SELECT SCANNED_DATA.troops_donated, MEMBERS.member_name
 			FROM
 				SCANNED_DATA
 			INNER JOIN MEMBERS
 				ON MEMBERS.member_tag = SCANNED_DATA.member_tag
 			WHERE
-				SCANNED_DATA.time = (SELECT MAX(SCANNED_DATA.time) FROM SCANNED_DATA WHERE SCANNED_DATA.time < ? AND SCANNED_DATA.member_tag = ?)
+				SCANNED_DATA.scanned_data_index =(SELECT MAX(SCANNED_DATA.scanned_data_index) FROM SCANNED_DATA WHERE SCANNED_DATA.scanned_data_index < ? AND SCANNED_DATA.member_tag = ?)
 			AND
 				SCANNED_DATA.member_tag = ?
 			'''
-		cursor.execute(query, (time_created, member_tag, member_tag))
+		cursor.execute(query, (max_index, member_tag, member_tag))
 		donated_before = cursor.fetchall()
 		if len(donated_before) > 1:
 			# throw error here
@@ -558,17 +594,18 @@ def getAllDonationsInTimeframe(time_created, time_finished):
 			member_joined_after_request_created = True
 			# this is when the member just joined
 
+		min_index = get_min_index_greater_than_scanned_time(cursor, time_finished)
 		query = '''SELECT SCANNED_DATA.troops_donated, MEMBERS.member_name
 			FROM
 				SCANNED_DATA
 			INNER JOIN MEMBERS
 				ON MEMBERS.member_tag = SCANNED_DATA.member_tag
 			WHERE
-				SCANNED_DATA.time = (SELECT MIN(SCANNED_DATA.time) FROM SCANNED_DATA WHERE SCANNED_DATA.time > ? AND SCANNED_DATA.member_tag = ?)
+				SCANNED_DATA.scanned_data_index = (SELECT MIN(SCANNED_DATA.scanned_data_index) FROM SCANNED_DATA WHERE SCANNED_DATA.scanned_data_index > ? AND SCANNED_DATA.member_tag = ?)
 			AND
 				SCANNED_DATA.member_tag = ?
 			'''
-		cursor.execute(query, (time_finished, member_tag, member_tag))
+		cursor.execute(query, (min_index, member_tag, member_tag))
 		donated_after = cursor.fetchall()
 		if len(donated_after) == 0:
 			member_left_after_request_created = True
