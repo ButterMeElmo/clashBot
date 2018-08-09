@@ -1,0 +1,19 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Unit test / coverage reports
+.pytest_cache/
+
+# Dependency directories
+node_modules/
+
+data/*
+config_bot.json
+clashData.db
+config_bot.py
+discordBot.js
+clashWebServer.py
+manuallyInputtingDataConversion/*
+!manuallyInputtingDataConversion/1_clanGamesMain.json

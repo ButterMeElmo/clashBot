@@ -1,0 +1,1 @@
+minTHRequiredToBeADonator = 8

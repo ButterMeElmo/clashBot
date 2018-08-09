@@ -1,0 +1,140 @@
+[
+    {
+        "startTime": "2017-12-19 08:00:00+00:00",
+        "stopTime": "2017-12-21 08:00:00+00:00",
+        "topTierScore": 10000,
+        "personalCap": 500
+    },
+    {
+        "startTime": "2017-12-22 08:00:00+00:00",
+        "stopTime": "2017-12-26 08:00:00+00:00",
+        "topTierScore": 30000,
+        "personalCap": 2000
+    },
+    {
+        "startTime": "2018-01-05 08:00:00+00:00",
+        "stopTime": "2018-01-08 08:00:00+00:00",
+        "topTierScore": 20000,
+        "personalCap": 2500
+    },
+    {
+        "startTime": "2018-01-13 08:00:00+00:00",
+        "stopTime": "2018-01-14 08:00:00+00:00",
+        "topTierScore": 5000,
+        "personalCap": 1000
+    },
+    {
+        "startTime": "2018-01-19 08:00:00+00:00",
+        "stopTime": "2018-01-22 08:00:00+00:00",
+        "topTierScore": 20000,
+        "personalCap": 2500
+    },
+    {
+        "startTime": "2018-01-27 08:00:00+00:00",
+        "stopTime": "2018-01-28 08:00:00+00:00",
+        "topTierScore": 5000,
+        "personalCap": 1000
+    },
+    {
+        "startTime": "2018-01-30 08:00:00+00:00",
+        "stopTime": "2018-02-05 08:00:00+00:00",
+        "topTierScore": 50000,
+        "personalCap": 3000
+    },
+    {
+        "startTime": "2018-02-06 08:00:00+00:00",
+        "stopTime": "2018-02-12 08:00:00+00:00",
+        "topTierScore": 50000,
+        "personalCap": 3000
+    },
+    {
+        "startTime": "2018-02-15 08:00:00+00:00",
+        "stopTime": "2018-02-22 08:00:00+00:00",
+        "topTierScore": 75000,
+        "personalCap": 3000
+    },
+    {
+        "startTime": "2018-02-27 08:00:00+00:00",
+        "stopTime": "2018-03-05 08:00:00+00:00",
+        "topTierScore": 50000,
+        "personalCap": 3000
+    },
+    {
+        "startTime": "2018-03-08 08:00:00+00:00",
+        "stopTime": "2018-03-12 08:00:00+00:00",
+        "topTierScore": 50000,
+        "personalCap": 3000
+    },
+    {
+        "startTime": "2018-03-16 08:00:00+00:00",
+        "stopTime": "2018-03-20 08:00:00+00:00",
+        "topTierScore": 30000,
+        "personalCap": 2000
+    },
+    {
+        "startTime": "2018-03-23 08:00:00+00:00",
+        "stopTime": "2018-03-27 08:00:00+00:00",
+        "topTierScore": 50000,
+        "personalCap": 3000
+    },
+    {
+        "startTime": "2018-03-30 08:00:00+00:00",
+        "stopTime": "2018-04-03 08:00:00+00:00",
+        "topTierScore": 30000,
+        "personalCap": 3000
+    },
+    {
+        "startTime": "2018-04-10 08:00:00+00:00",
+        "stopTime": "2018-04-16 08:00:00+00:00",
+        "topTierScore": 50000,
+        "personalCap": 4000
+    }, 
+    {
+        "startTime": "2018-04-24 08:00:00+00:00",
+        "stopTime": "2018-05-01 08:00:00+00:00",
+        "topTierScore": 50000,
+        "personalCap": 4000
+    },
+    {
+        "startTime": "2018-05-08 08:00:00+00:00",
+        "stopTime": "2018-05-15 08:00:00+00:00",
+        "topTierScore": 30000,
+        "personalCap": 4000
+    },
+    {
+        "startTime": "2018-05-22 08:00:00+00:00",
+        "stopTime": "2018-05-29 08:00:00+00:00",
+        "topTierScore": 30000,
+        "personalCap": 4000
+    },
+    {
+        "startTime": "2018-06-04 08:00:00+00:00",
+        "stopTime": "2018-06-11 08:00:00+00:00",
+        "topTierScore": 30000,
+        "personalCap": 4000
+    },
+    {
+        "startTime": "2018-06-18 08:00:00+00:00",
+        "stopTime": "2018-06-25 08:00:00+00:00",
+        "topTierScore": 50000,
+        "personalCap": 4000
+    },
+    {
+        "startTime": "2018-07-02 08:00:00+00:00",
+        "stopTime": "2018-07-09 08:00:00+00:00",
+        "topTierScore": 50000,
+        "personalCap": 4000
+    },
+    {
+        "startTime": "2018-07-16 08:00:00+00:00",
+        "stopTime": "2018-07-23 08:00:00+00:00",
+        "topTierScore": 50000,
+        "personalCap": 4000
+    },
+    {
+        "startTime": "2018-07-31 08:00:00+00:00",
+        "stopTime": "2018-08-07 08:00:00+00:00",
+        "topTierScore": 75000,
+        "personalCap": 5000
+    }
+]
