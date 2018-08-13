@@ -836,12 +836,16 @@ def processSeasonData(cursor, previousProcessedTime):
 			second_command_vars = (season_id, member_tag, total_troops_donated, total_troops_received, total_spells_donated, attacks_won, defenses_won)
 			cursor.execute(query, second_command_vars)
 
-def processClanGamesData(cursor):
+def processClanGamesData(cursor, previousProcessedTime):
 	query = '''
 		SELECT * FROM clan_games;
 		'''
 	cursor.execute(query)
 	clanGames = cursor.fetchall()
+
+	full_run = False
+	if previousProcessedTime == 0:
+		full_run = True
 
 	for clanGame in clanGames:
 
@@ -849,6 +853,11 @@ def processClanGamesData(cursor):
 		clanGameStartTime = clanGame[1] * 1000 
 		clanGameEndTime = clanGame[2] * 1000
 		clanGameID = clanGame[0]
+
+		if not full_run:
+			# if this game ended and has been processed since then, no point redoing it
+			if previousProcessedTime > clanGameEndTime / 1000:
+				continue
 
 		print('Processing clan games #: ' + str(clanGameID))
 
@@ -1106,7 +1115,7 @@ def saveData(cursor = None, previousProcessedTime = None):
 
 
 		print('processing clan games data from database')
-		processClanGamesData(cursor)
+		processClanGamesData(cursor, previousProcessedTime)
 
 		print('processing clan donation/received from database')
 		processSeasonData(cursor, previousProcessedTime)
