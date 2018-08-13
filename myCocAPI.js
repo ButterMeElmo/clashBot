@@ -17,7 +17,7 @@ const clientBot = new Discord.Client();
 
 // choose which token here
 let clashClient = clashApi({
-	token:config.token_3
+	token:config.token_to_use
   });
 
 
