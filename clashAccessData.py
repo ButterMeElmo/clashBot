@@ -44,6 +44,25 @@ def getLastProcessedTime():
 	conn.close()
 	return result
 
+def getSeasonIdForTimestamp(timestamp):
+	cursor, conn = getCursorAndConnection()
+	query = '''
+	SELECT season_ID
+		FROM
+			SEASONS
+		WHERE
+			start_time <= ? and end_time >= ?
+		'''
+	cursor.execute(query, (timestamp, timestamp))
+	result = cursor.fetchone()
+	if result == None:
+		result = None
+	else:
+		result = result[0]
+	conn.close()
+	return result
+	
+
 def getAllMembersTagSupposedlyInClan(cursor):
 	cursor.execute(
 		'''

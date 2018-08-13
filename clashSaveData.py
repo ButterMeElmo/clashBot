@@ -509,6 +509,7 @@ def add_scanned_data_time(cursor, timestamp):
 		return results[0][0]	
 
 def processClanPlayerAcievements(clanPlayerAcievementsEntry, cursor):
+	return
 	scanned_data_index = add_scanned_data_time(cursor, clanPlayerAcievementsEntry['timestamp'])
 	for entry in clanPlayerAcievementsEntry['members']:
 		addScannedDataToDB(cursor, entry, scanned_data_index)
@@ -745,15 +746,20 @@ def processSeasonData(cursor, previousProcessedTime):
 		raise ValueError('no max season id?')		
 	max_season_id = results[0][0]
 	
-	print('CURRENTLY ON A HARD RESET I WILL ONLY DO THE RECENT SEASONS, FIX THIS')
-	print('possible fix would be to just get all member tags ever in clan in all these kind of functions?')
-	print('NEED TO ACCOUNT FOR SEASONS ENDING EARLY OR LATE...')
-
+	full_run = False
 	# do the current season and the previous one
-	for season_id in range(1, max_season_id+1):
-#	for season_id in range(max_season_id-1, max_season_id+1):
+	if previousProcessedTime == 0:
+		full_run = True
+
+	# remember, range caps at the upper limit and does NOT run it, so +1 in this case :)
+	if full_run:
+		iterable = range(1, max_season_id+1)
+	else:
+		current_season_id = clashAccessData.getSeasonIdForTimestamp(previousProcessedTime)
+		iterable = range(current_season_id, max_season_id+1)
+	for season_id in iterable:
 		print('processing a season: {}'.format(season_id))
-		
+
 		query = '''select start_time, end_time from seasons where season_ID = ?'''
 		cursor.execute(query, (season_id,))
 		results = cursor.fetchall()
@@ -761,10 +767,13 @@ def processSeasonData(cursor, previousProcessedTime):
 			raise ValueError('This season does not have proper start and end times')
 		season_start_time, season_end_time = results[0]
 
-#		membersInClan = clashAccessData.getAllMembersTagSupposedlyInClan(cursor)	
-		query = '''select member_tag from members'''
-		cursor.execute(query)
-		membersInClan = cursor.fetchall()
+		if full_run:
+			query = '''select member_tag from members'''
+			cursor.execute(query)
+			membersInClan = cursor.fetchall()
+		else:	
+			membersInClan = clashAccessData.getAllMembersTagSupposedlyInClan(cursor)	
+
 		for member_tag in membersInClan:
 			member_tag = member_tag[0]
 			
@@ -773,7 +782,6 @@ def processSeasonData(cursor, previousProcessedTime):
 				print('processing member: {}'.format(member_tag))
 
 			# get all datapoints for them that fall within the season times
-
 			try:
 				min_index, max_index = clashAccessData.get_min_and_max_scanned_index_for_min_and_max_scanned_time(cursor, season_start_time * 1000, season_end_time * 1000)
 			except clashAccessData.NoDataDuringTimeSpanException:
@@ -783,7 +791,6 @@ def processSeasonData(cursor, previousProcessedTime):
 			query = '''SELECT troops_donated_monthly, troops_received_monthly, spells_donated_achievement, attacks_won, defenses_won  FROM SCANNED_DATA WHERE member_tag = ? and scanned_data_index >= ? and scanned_data_index <= ?'''
 			cursor.execute(query, (member_tag, min_index, max_index))
 			results = cursor.fetchall()
-
 			if len(results) == 0:
 				# this member wasn't here during this period
 				continue
@@ -814,13 +821,20 @@ def processSeasonData(cursor, previousProcessedTime):
 				if initial_spells_donated != None and final_spells_donated != None:
 					total_spells_donated = final_spells_donated - initial_spells_donated
 				total_troops_donated -= total_spells_donated
-			
-			query = '''INSERT OR REPLACE INTO
-					SEASON_HISTORICAL_DATA (season_ID, member_tag, troops_donated, troops_received, spells_donated, attacks_won, defenses_won)	
-					VALUES
-					(?, ?, ?, ?, ?, ?, ?)
+
+			query = '''UPDATE SEASON_HISTORICAL_DATA
+				SET troops_donated = ?, troops_received = ?, spells_donated = ?, attacks_won = ?, defenses_won = ?
+				WHERE season_ID = ? AND member_tag = ?;
 				'''
-			cursor.execute(query, (season_id, member_tag, total_troops_donated, total_troops_received, total_spells_donated, attacks_won, defenses_won))
+			first_command_vars = (total_troops_donated, total_troops_received, total_spells_donated, attacks_won, defenses_won, season_id, member_tag)
+			cursor.execute(query, first_command_vars)
+
+			query = '''INSERT INTO SEASON_HISTORICAL_DATA (season_ID, member_tag, troops_donated, troops_received, spells_donated, attacks_won, defenses_won)	
+				SELECT ?, ?, ?, ?, ?, ?, ?
+				WHERE (Select Changes() = 0)
+				'''
+			second_command_vars = (season_id, member_tag, total_troops_donated, total_troops_received, total_spells_donated, attacks_won, defenses_won)
+			cursor.execute(query, second_command_vars)
 
 def processClanGamesData(cursor):
 	query = '''
