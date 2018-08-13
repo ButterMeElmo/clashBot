@@ -17,3 +17,4 @@ discordBot.js
 clashWebServer.py
 manuallyInputtingDataConversion/*
 !manuallyInputtingDataConversion/1_clanGamesMain.json
+clashData.db-journal
