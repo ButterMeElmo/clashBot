@@ -582,7 +582,6 @@ def getAllDonatedOrReceivedInTimeFrame(time_created, time_finished):
 			AND
 				SCANNED_DATA.member_tag = ?
 			'''
-		print('{} {} {}'.format(max_index, member_tag, member_tag))
 		cursor.execute(query, (max_index, member_tag, member_tag))
 		donations_before = cursor.fetchall()
 		if len(donations_before) > 1:
@@ -605,7 +604,6 @@ def getAllDonatedOrReceivedInTimeFrame(time_created, time_finished):
 			AND
 				SCANNED_DATA.member_tag = ?
 			'''
-		print('{} {} {}'.format(min_index, member_tag, member_tag))
 		cursor.execute(query, (min_index, member_tag, member_tag))
 		donations_after = cursor.fetchall()
 		if len(donations_after) == 0:
