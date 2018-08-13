@@ -685,7 +685,7 @@ def getMinAllowableTimeForClanGameData(clanGameData, currentGamesID):
 		for clanGame in clanGameData:
 			idOfGamesInLoop = clanGame[0]
 			if idOfGamesInLoop == currentGamesID - 1:
-				result = clanGame[2] * 1000 + 1
+				result = clanGame[2] + 1
 	return result
 
 def getMaxAllowableTimeForClanGameData(clanGameData, currentGamesID):
@@ -699,7 +699,7 @@ def getMaxAllowableTimeForClanGameData(clanGameData, currentGamesID):
 			return -2
 		for clanGame in clanGameData:
 			if clanGame[0] == currentGamesID + 1:
-				result = clanGame[1] * 1000 - 1
+				result = clanGame[1] - 1
 	return result
 
 def DEBUG_ONLY_getMemberNameFromTag(cursor, tag):
@@ -782,7 +782,7 @@ def processSeasonData(cursor, previousProcessedTime):
 
 			# get all datapoints for them that fall within the season times
 			try:
-				min_index, max_index = clashAccessData.get_min_and_max_scanned_index_for_min_and_max_scanned_time(cursor, season_start_time * 1000, season_end_time * 1000)
+				min_index, max_index = clashAccessData.get_min_and_max_scanned_index_for_min_and_max_scanned_time(cursor, season_start_time, season_end_time)
 			except clashAccessData.NoDataDuringTimeSpanException:
 				# no data from this time period
 				continue
@@ -838,22 +838,24 @@ def processClanGamesData(cursor, previousProcessedTime):
 	if previousProcessedTime == 0:
 		full_run = True
 
+	debug = True
+
 	for clanGame in clanGames:
 
 		# scanned data has millisecond precision, should probably change that
-		clanGameStartTime = clanGame[1] * 1000 
-		clanGameEndTime = clanGame[2] * 1000
+		clanGameStartTime = clanGame[1]
+		clanGameEndTime = clanGame[2]
 		clanGameID = clanGame[0]
 
 		if not full_run:
 			# if this game ended and has been processed since then, no point redoing it
-			if previousProcessedTime > clanGameEndTime / 1000:
+			if previousProcessedTime > clanGameEndTime:
 				continue
 
 		print('Processing clan games #: ' + str(clanGameID))
 
-
-		if clanGameStartTime > getDataFromServer.getUTCTimestamp() * 1000:
+		processingTime = getDataFromServer.getUTCTimestamp()
+		if clanGameStartTime > processingTime:
 			print('This clan games hasn\'t started yet')
 			continue
 
@@ -861,21 +863,19 @@ def processClanGamesData(cursor, previousProcessedTime):
 			# we didn't have a complete data set, so this must be imported manually
 			print('This clan games was too early on, only final results are saved.')
 			continue
-			
 
 		membersInClan = clashAccessData.getAllMembersTagSupposedlyInClan(cursor)
 
 		for memberTag in membersInClan:
 			#print('')
 			memberTag = memberTag[0]
-#			print(clanGameStartTime)
 			minAllowableTimeForClanGameData = getMinAllowableTimeForClanGameData(clanGames, clanGameID)
-			debug = False
 			try:
 				min_index, max_index = clashAccessData.get_min_and_max_scanned_index_for_min_and_max_scanned_time(cursor, minAllowableTimeForClanGameData, clanGameStartTime)
 			except clashAccessData.NoDataDuringTimeSpanException:
 				# no data from during this period
-					continue
+				print('There is no data from this period')
+				continue
 
 			query = '''SELECT max(scanned_data_index) FROM 
 					SCANNED_DATA 
@@ -887,7 +887,6 @@ def processClanGamesData(cursor, previousProcessedTime):
 			cursor.execute(query, (min_index, max_index, memberTag))
 			timeBefore = cursor.fetchone()[0]
 
-			debug = False
 			if debug:
 				print("1")
 				print('clanGameStartTime: {}'.format(clanGameStartTime))
@@ -930,19 +929,30 @@ def processClanGamesData(cursor, previousProcessedTime):
 			scoreBefore = cursor.fetchone()[0]
 
 			maxAllowableTimeForClanGameData = getMaxAllowableTimeForClanGameData(clanGames, clanGameID)
-			debug = False
 			if debug:
 				print('maxAllowableTimeForClanGameData: {}'.format(maxAllowableTimeForClanGameData))
 				print('clanGameEndTime: {}'.format(clanGameEndTime))
+			# these are the most recent, potentially ongoing games
 			if maxAllowableTimeForClanGameData == -2:
-				min_index = clashAccessData.get_min_index_greater_than_scanned_time(cursor, clanGameEndTime)
-				query = '''
-					SELECT min(scanned_data_index) FROM 
-						SCANNED_DATA 
-					WHERE
-						scanned_data_index >= ? and member_tag = ?
-					'''
-				cursor.execute(query, (min_index, memberTag))
+				if clanGameEndTime > processingTime:
+					# ongoing games
+					query = '''SELECT max(scanned_data_index) FROM
+							SCANNED_DATA
+						WHERE
+							scanned_data_index >= ? and member_tag = ?
+						'''
+					min_index, max_index = clashAccessData.get_min_and_max_scanned_index_for_min_and_max_scanned_time(cursor, clanGameStartTime, clanGameEndTime)
+					cursor.execute(query, (min_index, memberTag))
+				else:
+					# most recent games
+					min_index = clashAccessData.get_min_index_greater_than_scanned_time(cursor, clanGameEndTime)
+					query = '''
+						SELECT min(scanned_data_index) FROM 
+							SCANNED_DATA 
+						WHERE
+							scanned_data_index >= ? and member_tag = ?
+						'''
+					cursor.execute(query, (min_index, memberTag))
 			else:
 				min_index, max_index = clashAccessData.get_min_and_max_scanned_index_for_min_and_max_scanned_time(cursor, clanGameEndTime, maxAllowableTimeForClanGameData)
 				query = '''
@@ -957,7 +967,6 @@ def processClanGamesData(cursor, previousProcessedTime):
 #				print(memberTag)
 				cursor.execute(query, (min_index, max_index, memberTag))
 			timeAfter = cursor.fetchone()[0]
-			debug = False
 			if debug:
 				print('ta {}'.format(timeAfter))
 			if timeAfter == None:
