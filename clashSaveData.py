@@ -509,7 +509,6 @@ def add_scanned_data_time(cursor, timestamp):
 		return results[0][0]	
 
 def processClanPlayerAcievements(clanPlayerAcievementsEntry, cursor):
-	return
 	scanned_data_index = add_scanned_data_time(cursor, clanPlayerAcievementsEntry['timestamp'])
 	for entry in clanPlayerAcievementsEntry['members']:
 		addScannedDataToDB(cursor, entry, scanned_data_index)
@@ -822,16 +821,8 @@ def processSeasonData(cursor, previousProcessedTime):
 					total_spells_donated = final_spells_donated - initial_spells_donated
 				total_troops_donated -= total_spells_donated
 
-			query = '''UPDATE SEASON_HISTORICAL_DATA
-				SET troops_donated = ?, troops_received = ?, spells_donated = ?, attacks_won = ?, defenses_won = ?
-				WHERE season_ID = ? AND member_tag = ?;
-				'''
-			first_command_vars = (total_troops_donated, total_troops_received, total_spells_donated, attacks_won, defenses_won, season_id, member_tag)
-			cursor.execute(query, first_command_vars)
-
-			query = '''INSERT INTO SEASON_HISTORICAL_DATA (season_ID, member_tag, troops_donated, troops_received, spells_donated, attacks_won, defenses_won)	
+			query = '''INSERT OR REPLACE INTO SEASON_HISTORICAL_DATA (season_ID, member_tag, troops_donated, troops_received, spells_donated, attacks_won, defenses_won)	
 				SELECT ?, ?, ?, ?, ?, ?, ?
-				WHERE (Select Changes() = 0)
 				'''
 			second_command_vars = (season_id, member_tag, total_troops_donated, total_troops_received, total_spells_donated, attacks_won, defenses_won)
 			cursor.execute(query, second_command_vars)
