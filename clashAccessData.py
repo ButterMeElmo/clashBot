@@ -17,6 +17,9 @@ import config_strings
 db_file = "clashData.db"
 #currentSeasonIDs = {}
 
+class NoDataDuringTimeSpanException(Exception):
+	pass
+
 def getCursorAndConnection():
 	conn = sqlite3.connect(db_file)
 	cursor = conn.cursor()
@@ -51,6 +54,37 @@ def getAllMembersTagSupposedlyInClan(cursor):
 		'''
 		)
 	return cursor.fetchall()
+
+def get_min_and_max_scanned_index_for_min_and_max_scanned_time(cursor, min_timestamp, max_timestamp):
+	query = '''SELECT scanned_data_index FROM SCANNED_DATA_TIMES WHERE time > ? and time < ?'''
+	cursor.execute(query, (min_timestamp, max_timestamp))
+	results = cursor.fetchall()
+	if len(results) == 0:
+		raise NoDataDuringTimeSpanException()
+	else:
+		min_index = min(results, key = lambda t:t[0])[0]
+		max_index = max(results, key = lambda t:t[0])[0]
+	return min_index, max_index
+
+def get_min_index_greater_than_scanned_time(cursor, min_timestamp):
+	query = '''SELECT scanned_data_index FROM SCANNED_DATA_TIMES WHERE time > ?'''
+	cursor.execute(query, (min_timestamp,))
+	results = cursor.fetchall()
+	if len(results) == 0:
+		raise NoDataDuringTimeSpanException()
+	else:
+		min_index = min(results, key = lambda t:t[0])[0]
+	return min_index
+
+def get_max_index_less_than_scanned_time(cursor, max_timestamp):
+	query = '''SELECT scanned_data_index FROM SCANNED_DATA_TIMES WHERE time < ?'''
+	cursor.execute(query, (max_timestamp,))
+	results = cursor.fetchall()
+	if len(results) == 0:
+		raise NoDataDuringTimeSpanException()
+	else:
+		max_index = max(results, key = lambda t:t[0])[0]
+	return max_index
 
 def removeDiscordAccountsRelatedTo(accountName):
 	cursor, conn = getCursorAndConnection()
@@ -523,7 +557,7 @@ def getIneligibleForClanGames(thLevelRequired = 6):
 	conn.close()
 	return resultsString
 
-def getAllDonationsInTimeframe(time_created, time_finished):
+def getAllDonatedOrReceivedInTimeFrame(time_created, time_finished):
 	resultDict = {}
 	resultDict['left_since_created'] = []
 	resultDict['standard'] = []
@@ -537,76 +571,87 @@ def getAllDonationsInTimeframe(time_created, time_finished):
 		member_tag = memberTag[0]
 		member_joined_after_request_created = False
 		member_left_after_request_created = False
-		query = '''SELECT SCANNED_DATA.troops_donated, MEMBERS.member_name
+		max_index = get_max_index_less_than_scanned_time(cursor, time_created)
+		query = '''SELECT MEMBERS.member_name, SCANNED_DATA.troops_donated_monthly, SCANNED_DATA.troops_received_monthly
 			FROM
 				SCANNED_DATA
 			INNER JOIN MEMBERS
 				ON MEMBERS.member_tag = SCANNED_DATA.member_tag
 			WHERE
-				SCANNED_DATA.time = (SELECT MAX(SCANNED_DATA.time) FROM SCANNED_DATA WHERE SCANNED_DATA.time < ? AND SCANNED_DATA.member_tag = ?)
+				SCANNED_DATA.scanned_data_index =(SELECT MAX(SCANNED_DATA.scanned_data_index) FROM SCANNED_DATA WHERE SCANNED_DATA.scanned_data_index <= ? AND SCANNED_DATA.member_tag = ?)
 			AND
 				SCANNED_DATA.member_tag = ?
 			'''
-		cursor.execute(query, (time_created, member_tag, member_tag))
-		donated_before = cursor.fetchall()
-		if len(donated_before) > 1:
+		cursor.execute(query, (max_index, member_tag, member_tag))
+		donations_before = cursor.fetchall()
+		if len(donations_before) > 1:
 			# throw error here
 			resultDict['error'] = 'error 1'
 			return resultDict
-#			return 'before: {}: {}'.format(memberTag, donated_before)
-		elif len(donated_before) == 0:
+#			return 'before: {}: {}'.format(memberTag, donations_before)
+		elif len(donations_before) == 0:
 			member_joined_after_request_created = True
 			# this is when the member just joined
 
-		query = '''SELECT SCANNED_DATA.troops_donated, MEMBERS.member_name
+		min_index = get_min_index_greater_than_scanned_time(cursor, time_finished)
+		query = '''SELECT MEMBERS.member_name, SCANNED_DATA.troops_donated_monthly, SCANNED_DATA.troops_received_monthly
 			FROM
 				SCANNED_DATA
 			INNER JOIN MEMBERS
 				ON MEMBERS.member_tag = SCANNED_DATA.member_tag
 			WHERE
-				SCANNED_DATA.time = (SELECT MIN(SCANNED_DATA.time) FROM SCANNED_DATA WHERE SCANNED_DATA.time > ? AND SCANNED_DATA.member_tag = ?)
+				SCANNED_DATA.scanned_data_index = (SELECT MIN(SCANNED_DATA.scanned_data_index) FROM SCANNED_DATA WHERE SCANNED_DATA.scanned_data_index >= ? AND SCANNED_DATA.member_tag = ?)
 			AND
 				SCANNED_DATA.member_tag = ?
 			'''
-		cursor.execute(query, (time_finished, member_tag, member_tag))
-		donated_after = cursor.fetchall()
-		if len(donated_after) == 0:
+		cursor.execute(query, (min_index, member_tag, member_tag))
+		donations_after = cursor.fetchall()
+		if len(donations_after) == 0:
 			member_left_after_request_created = True
-		elif len(donated_after) != 1:
+		elif len(donations_after) != 1:
 			# throw error here
-			print(donated_after)
+			print(donations_after)
 			resultDict['error'] = 'error 2'
 			return resultDict
-#			return 'after: {}: {}'.format(memberTag, donated_before)
+#			return 'after: {}: {}'.format(memberTag, donations_before)
 		
 		if member_joined_after_request_created and member_left_after_request_created:
 			print('whats happening')
 			resultDict['error'] = 'error 3'
 			return resultDict
 		elif member_joined_after_request_created:
-			donated_name = donated_after[0][1]		
+			donated_name = donations_after[0][0]		
 			entry = {}
 			entry['tag'] = member_tag
 			entry['name'] = donated_name
-			entry['donated'] = donated_after[0][0]
+			entry['donated'] = donations_after[0][1]
+			entry['received'] = donations_after[0][2]
 			resultDict['joined_since_created'].append(entry)
 		elif member_left_after_request_created:
-			donated_name = donated_before[0][1]		
+			donated_name = donations_before[0][0]		
 			entry = {}
 			entry['tag'] = member_tag
 			entry['name'] = donated_name
 			entry['donated'] = '?'
+			entry['received'] = '?'
 			resultDict['left_since_created'].append(entry)
 		else:
-			donated_before_num = donated_before[0][0]				
-			donated_after_num = donated_after[0][0]
-			donated_name = donated_before[0][1]		
+			donated_name = donations_before[0][0]		
+
+			donated_before_num = donations_before[0][1]				
+			donated_after_num = donations_after[0][1]
 			donated = donated_after_num - donated_before_num
-			if donated != 0:
+
+			received_before_num = donations_before[0][2]				
+			received_after_num = donations_after[0][2]
+			received = received_after_num - received_before_num
+
+			if donated != 0 or received != 0:
 				entry = {}
 				entry['tag'] = member_tag
 				entry['name'] = donated_name
 				entry['donated'] = donated
+				entry['received'] = received
 				resultDict['standard'].append(entry)
 
 	conn.close()

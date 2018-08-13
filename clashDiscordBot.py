@@ -557,7 +557,7 @@ class ClanManagement:
 			while lastUpdatedData < timeChecking:
 				await asyncio.sleep(1)
 
-		resultDict = clashAccessData.getAllDonationsInTimeframe(timeSinceCreated, timeSinceFilled)
+		resultDict = clashAccessData.getAllDonatedOrReceivedInTimeFrame(timeSinceCreated, timeSinceFilled)
 		resultString = clashConvertDataToString.convert_donation_timeframe_results(resultDict)
 		await discordClient.say(str(resultDict))
 		await discordClient.say(resultString)

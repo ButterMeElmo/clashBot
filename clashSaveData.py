@@ -314,7 +314,7 @@ def processWar(war, cursor):
 					timeStampAttackLastNotSeen = dataTime
 					command = "INSERT OR IGNORE INTO warAttacks () "
 					attack2 = createEmptyWarAttack(warID, memberTag, memberMapPosition, memberTownHall, 2, dataTime)
-					addWarAttackToDB(cursor, attack2)					
+					addWarAttackToDB(cursor, attack2)			
 
 				for i in range(0,len(member['attacks'])):
 					attack = member['attacks'][i]
@@ -422,9 +422,9 @@ def addAccountName(cursor, playerTag, playerName):
 	cursor.execute(query, (playerTag, playerName))
 
 
-def addScannedDataToDB(cursor, data, time):
+def addScannedDataToDB(cursor, data, scanned_data_index):
 	member_tag = data['tag']
-	troops_donated = data['donations']
+	troops_donated_monthly = data['donations']
 	troops_received = data['donationsReceived']
 	allAchievements = data['achievements']
 	attacks_won = data['attackWins']
@@ -436,13 +436,16 @@ def addScannedDataToDB(cursor, data, time):
 		if achievement['name'] == "Sharing is caring":
 			spells_donated = achievement['value']
 
+		if achievement['name'] == "Friend in Need":
+			troops_donated_achievement =  achievement['value']
+
 	query = """
 		INSERT OR REPLACE INTO
-			SCANNED_DATA (member_tag, time, troops_donated, troops_received, spells_donated, clan_games_points, attacks_won, defenses_won)
+			SCANNED_DATA (member_tag, scanned_data_index, troops_donated_monthly, troops_received_monthly, spells_donated_achievement, troops_donated_achievement, clan_games_points, attacks_won, defenses_won)
 		VALUES
-			(?, ?, ?, ?, ?, ?, ?, ?);
+			(?, ?, ?, ?, ?, ?, ?, ?, ?);
 	"""
-	cursor.execute(query, (member_tag, time, troops_donated, troops_received, spells_donated, clan_games_points, attacks_won, defenses_won))
+	cursor.execute(query, (member_tag, scanned_data_index, troops_donated_monthly, troops_received, spells_donated, troops_donated_achievement, clan_games_points, attacks_won, defenses_won))
 
 	trophies = data['trophies']
 	
@@ -493,9 +496,22 @@ def addMemberFromAchievements(entry, cursor, timestamp):
 	THLevel = entry['townHallLevel']
 	cursor.execute(query, (tag, name, role, trophies, THLevel, timestamp, tag, tag, tag, tag, tag, tag))
 
+def add_scanned_data_time(cursor, timestamp):
+	query = '''INSERT OR REPLACE INTO SCANNED_DATA_TIMES (scanned_data_index, time) 
+		VALUES (COALESCE((SELECT scanned_data_index FROM SCANNED_DATA_TIMES WHERE time = ?),NULL), ?)'''
+	cursor.execute(query, (timestamp, timestamp))
+	query = '''SELECT scanned_data_index FROM SCANNED_DATA_TIMES WHERE time = ?'''
+	cursor.execute(query, (timestamp,))
+	results = cursor.fetchall()
+	if len(results) != 1:
+		raise Exception('This time was registered for multiple indexes!')
+	else:
+		return results[0][0]	
+
 def processClanPlayerAcievements(clanPlayerAcievementsEntry, cursor):
+	scanned_data_index = add_scanned_data_time(cursor, clanPlayerAcievementsEntry['timestamp'])
 	for entry in clanPlayerAcievementsEntry['members']:
-		addScannedDataToDB(cursor, entry, clanPlayerAcievementsEntry['timestamp'])
+		addScannedDataToDB(cursor, entry, scanned_data_index)
 		addMemberFromAchievements(entry, cursor, clanPlayerAcievementsEntry['timestamp'])
 
 def getNextSeasonTimeStamp(timeBeingCalulatedFrom, extraMonth):
@@ -625,6 +641,7 @@ def useLinkedAccountsStartingPoint(cursor):
 		donator = discordProperty['isDonator']
 		time = discordProperty['lastCheckedTime']
 		war_perms = discordProperty['hasWarPerms']
+		print('inserting into properties: {}'.format(tag))
 		cursor.execute(query, (tag, donator, war_perms, time))
 
 	for discordName in discordNames:
@@ -637,8 +654,7 @@ def useLinkedAccountsStartingPoint(cursor):
 		discordTag = discordName['discordID']
 		clashTag = discordName['member_tag']
 		account_order = discordName['account_order']
-		print(discordTag)
-		print(clashTag)
+		print('inserting into names: {}'.format(discordTag))
 		cursor.execute(query, (discordTag, clashTag, account_order))
 		
 def importSavedFreeGiftDays(cursor):
@@ -696,7 +712,30 @@ def DEBUG_ONLY_getMemberNameFromTag(cursor, tag):
 		raise ValueError('Theres not exactly one member name for member_tag: {}'.format(tag))
 	return results[0][0]
 
-#def getm
+def attemptToFindSiegeMachinesSinceLastProcessed(cursor):
+#	query = track
+	return
+
+#def get_min_and_max_scanned_index_for_min_and_max_scanned_time(cursor, min_timestamp, max_timestamp):
+#	query = '''SELECT scanned_data_index FROM SCANNED_DATA_TIMES WHERE time > ? and time < ?'''
+#	cursor.execute(query, (min_timestamp, max_timestamp))
+#	results = cursor.fetchall()
+#	if len(results) == 0:
+#		raise ValueError('unknown values for scanned time')
+#	else:
+#		min_index = min(results, key = lambda t:t[0])[0]
+#		max_index = max(results, key = lambda t:t[0])[0]
+#	return min_index, max_index
+
+#def get_min_index_greater_than_scanned_time(cursor, min_timestamp):
+#	query = '''SELECT scanned_data_index FROM SCANNED_DATA_TIMES WHERE time > ?'''
+#	cursor.execute(query, (min_timestamp))
+#	results = cursor.fetchall()
+#	if len(results) == 0:
+#		raise ValueError('unknown values for scanned time')
+#	else:
+#		min_index = min(results, key = lambda t:t[0])[0]
+#	return min_index
 
 def processSeasonData(cursor, previousProcessedTime):
 	query = '''SELECT MAX(season_ID) FROM SEASONS'''
@@ -722,7 +761,7 @@ def processSeasonData(cursor, previousProcessedTime):
 			raise ValueError('This season does not have proper start and end times')
 		season_start_time, season_end_time = results[0]
 
-#		membersInClan = clashAccessData.getAllMembersTagSupposedlyInClan(cursor)		
+#		membersInClan = clashAccessData.getAllMembersTagSupposedlyInClan(cursor)	
 		query = '''select member_tag from members'''
 		cursor.execute(query)
 		membersInClan = cursor.fetchall()
@@ -734,15 +773,22 @@ def processSeasonData(cursor, previousProcessedTime):
 				print('processing member: {}'.format(member_tag))
 
 			# get all datapoints for them that fall within the season times
-			query = '''SELECT troops_donated, troops_received, spells_donated, attacks_won, defenses_won, time FROM SCANNED_DATA WHERE member_tag = ? and time > ? and time < ?'''
-			cursor.execute(query, (member_tag, season_start_time * 1000, season_end_time * 1000))
+
+			try:
+				min_index, max_index = clashAccessData.get_min_and_max_scanned_index_for_min_and_max_scanned_time(cursor, season_start_time * 1000, season_end_time * 1000)
+			except clashAccessData.NoDataDuringTimeSpanException:
+				# no data from this time period
+				continue
+
+			query = '''SELECT troops_donated_monthly, troops_received_monthly, spells_donated_achievement, attacks_won, defenses_won  FROM SCANNED_DATA WHERE member_tag = ? and scanned_data_index >= ? and scanned_data_index <= ?'''
+			cursor.execute(query, (member_tag, min_index, max_index))
 			results = cursor.fetchall()
-			
+
 			if len(results) == 0:
-				# they weren't here during this season
+				# this member wasn't here during this period
 				continue
 			elif len(results) == 1:
-				total_troops_donated, total_troops_received, junk, attacks_won, defenses_won, time = datapoint
+				total_troops_donated, total_troops_received, junk, attacks_won, defenses_won = datapoint
 				total_spells_donated = None
 			else:
 				total_troops_donated = 0
@@ -753,7 +799,7 @@ def processSeasonData(cursor, previousProcessedTime):
 					if debug:
 						print(datapoint)
 					# these last two values are used since we only want the last value after the loop
-					troops_donated, troops_received, spells_donated, attacks_won, defenses_won, time = datapoint
+					troops_donated, troops_received, spells_donated, attacks_won, defenses_won = datapoint
 					if troops_donated < current_iteration_donated or troops_received < current_iteration_received:
 						total_troops_donated += current_iteration_donated
 						total_troops_received += current_iteration_received
@@ -767,6 +813,7 @@ def processSeasonData(cursor, previousProcessedTime):
 				final_spells_donated = results[len(results)-1][2]
 				if initial_spells_donated != None and final_spells_donated != None:
 					total_spells_donated = final_spells_donated - initial_spells_donated
+				total_troops_donated -= total_spells_donated
 			
 			query = '''INSERT OR REPLACE INTO
 					SEASON_HISTORICAL_DATA (season_ID, member_tag, troops_donated, troops_received, spells_donated, attacks_won, defenses_won)	
@@ -808,17 +855,22 @@ def processClanGamesData(cursor):
 			#print('')
 			memberTag = memberTag[0]
 #			print(clanGameStartTime)
+			minAllowableTimeForClanGameData = getMinAllowableTimeForClanGameData(clanGames, clanGameID)
 			debug = False
-			query = '''
-				SELECT max(time) FROM 
+			try:
+				min_index, max_index = clashAccessData.get_min_and_max_scanned_index_for_min_and_max_scanned_time(cursor, minAllowableTimeForClanGameData, clanGameStartTime)
+			except clashAccessData.NoDataDuringTimeSpanException:
+				# no data from during this period
+					continue
+
+			query = '''SELECT max(scanned_data_index) FROM 
 					SCANNED_DATA 
 				WHERE
-					time < ? and time > ? and member_tag = ?
+					scanned_data_index >= ? and scanned_data_index <= ? and member_tag = ?
 				'''
 		#	print(clanGameStartTime)
-			minAllowableTimeForClanGameData = getMinAllowableTimeForClanGameData(clanGames, clanGameID)
 		#	print(minAllowableTimeForClanGameData)
-			cursor.execute(query, (clanGameStartTime, minAllowableTimeForClanGameData, memberTag))
+			cursor.execute(query, (min_index, max_index, memberTag))
 			timeBefore = cursor.fetchone()[0]
 
 			debug = False
@@ -834,16 +886,17 @@ def processClanGamesData(cursor):
 				if debug:
 					print("2")
 
-				query = '''
-					SELECT min(time) FROM 
+				min_index, max_index = clashAccessData.get_min_and_max_scanned_index_for_min_and_max_scanned_time(cursor, clanGameStartTime, clanGameEndTime)
+		
+				query = '''SELECT min(scanned_data_index) FROM 
 						SCANNED_DATA 
 					WHERE
-						time > ? and time < ? and member_tag = ?
+						scanned_data_index >= ? and scanned_data_index <= ? and member_tag = ?
 					'''
 				if debug:
 					print(clanGameStartTime)
 					print(clanGameEndTime)
-				cursor.execute(query, (clanGameStartTime, clanGameEndTime, memberTag))
+				cursor.execute(query, (min_index, max_index, memberTag))
 				timeBefore = cursor.fetchone()[0]
 				if timeBefore == None:
 					# they weren't here during these games, so move on
@@ -855,7 +908,7 @@ def processClanGamesData(cursor):
 				SELECT clan_games_points FROM 
 					SCANNED_DATA 
 				WHERE
-					time = ? and member_tag = ?
+					scanned_data_index = ? and member_tag = ?
 				'''
 			if debug:
 				print('timeBefore: {}'.format(timeBefore))
@@ -868,43 +921,47 @@ def processClanGamesData(cursor):
 				print('maxAllowableTimeForClanGameData: {}'.format(maxAllowableTimeForClanGameData))
 				print('clanGameEndTime: {}'.format(clanGameEndTime))
 			if maxAllowableTimeForClanGameData == -2:
+				min_index = clashAccessData.get_min_index_greater_than_scanned_time(cursor, clanGameEndTime)
 				query = '''
-					SELECT min(time) FROM 
+					SELECT min(scanned_data_index) FROM 
 						SCANNED_DATA 
 					WHERE
-						time > ? and member_tag = ?
+						scanned_data_index >= ? and member_tag = ?
 					'''
-				cursor.execute(query, (clanGameEndTime, memberTag))
+				cursor.execute(query, (min_index, memberTag))
 			else:
+				min_index, max_index = clashAccessData.get_min_and_max_scanned_index_for_min_and_max_scanned_time(cursor, clanGameEndTime, maxAllowableTimeForClanGameData)
 				query = '''
-					SELECT min(time) FROM 
+					SELECT min(scanned_data_index) FROM 
 						SCANNED_DATA 
 					WHERE
-						time > ? and time < ? and member_tag = ?
+						scanned_data_index >= ? and scanned_data_index <= ? and member_tag = ?
 					'''
 #				print('----')
 #				print(clanGameEndTime)
 #				print(maxAllowableTimeForClanGameData)
 #				print(memberTag)
-				cursor.execute(query, (clanGameEndTime, maxAllowableTimeForClanGameData, memberTag))
+				cursor.execute(query, (min_index, max_index, memberTag))
 			timeAfter = cursor.fetchone()[0]
 			debug = False
 			if debug:
 				print('ta {}'.format(timeAfter))
 			if timeAfter == None:
+				
+				min_index, max_index = clashAccessData.get_min_and_max_scanned_index_for_min_and_max_scanned_time(cursor, clanGameStartTime, clanGameEndTime)
 				# if timeAfter is none, they were not here after the last clan games (but before the next ones started)  or the games havent ended
 				query = '''
-					SELECT max(time) FROM 
+					SELECT max(scanned_data_index) FROM 
 						SCANNED_DATA 
 					WHERE
-						time > ? and time < ? and member_tag = ?
+						scanned_data_index >= ? and scanned_data_index <= ? and member_tag = ?
 					'''
 				if debug:
 					print(clanGameStartTime)
 					print(clanGameEndTime)
 					print(memberTag)
 
-				cursor.execute(query, (clanGameStartTime, clanGameEndTime, memberTag))
+				cursor.execute(query, (min_index, max_index, memberTag))
 				timeAfter = cursor.fetchone()
 				timeAfter = timeAfter[0]
 				if timeAfter == None:
@@ -915,7 +972,7 @@ def processClanGamesData(cursor):
 				SELECT clan_games_points FROM 
 					SCANNED_DATA 
 				WHERE
-					time = ? and member_tag = ?
+					scanned_data_index = ? and member_tag = ?
 				'''
 #			print(memberTag)
 			cursor.execute(query, (timeAfter, memberTag))
