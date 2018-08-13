@@ -216,7 +216,7 @@ def processWar(war, cursor):
 	warStartTime = convertTime(war['startTime'])
 	warEndTime = convertTime(war['endTime'])
 	warSize = war['teamSize']
-	dataTime = war['timestamp'] / 1000
+	dataTime = int(war['timestamp'] / 1000)
 	
 	friendlyName = war['clan']['name']
 	friendlyTag = war['clan']['tag']
@@ -381,7 +381,7 @@ def markMembersNoLongerActive(cursor, profile):
 
 def getSeasonIDForUTCTimestamp(cursor, timeToGetSeasonFor):
 	if timeToGetSeasonFor > 2500000000:
-		timeToGetSeasonFor = timeToGetSeasonFor / 1000
+		raise ValueError('Timestamp in millisecond')
 	#print('getting season id for {}'.format(timeToGetSeasonFor))
 	query = """
 		SELECT season_ID from SEASONS where start_time < ? and end_time > ?
@@ -396,7 +396,7 @@ def processClanProfile(clanProfile, cursor):
 	
 	addClanToDB(cursor, name, tag)
 	
-	seasonID = getSeasonIDForUTCTimestamp(cursor, clanProfile['timestamp'])
+	seasonID = getSeasonIDForUTCTimestamp(cursor, int(clanProfile['timestamp']/1000))
 
 #	updateCurrentSeasonInDB(cursor, clanProfile)
 	for member in clanProfile['memberList']:
@@ -509,10 +509,11 @@ def add_scanned_data_time(cursor, timestamp):
 		return results[0][0]	
 
 def processClanPlayerAcievements(clanPlayerAcievementsEntry, cursor):
-	scanned_data_index = add_scanned_data_time(cursor, clanPlayerAcievementsEntry['timestamp'])
+	timestamp = int(clanPlayerAcievementsEntry['timestamp'] / 1000)
+	scanned_data_index = add_scanned_data_time(cursor, timestamp)
 	for entry in clanPlayerAcievementsEntry['members']:
 		addScannedDataToDB(cursor, entry, scanned_data_index)
-		addMemberFromAchievements(entry, cursor, clanPlayerAcievementsEntry['timestamp'])
+		addMemberFromAchievements(entry, cursor, timestamp)
 
 def getNextSeasonTimeStamp(timeBeingCalulatedFrom, extraMonth):
 	date = datetime.datetime.utcfromtimestamp(timeBeingCalulatedFrom)
@@ -838,7 +839,7 @@ def processClanGamesData(cursor, previousProcessedTime):
 	if previousProcessedTime == 0:
 		full_run = True
 
-	debug = True
+	debug = False
 
 	for clanGame in clanGames:
 
@@ -1085,7 +1086,7 @@ def saveData(cursor = None, previousProcessedTime = None):
 				print('processing: {}'.format(filename))
 				wars = json.load(open(filename))
 				for war in wars:
-					if war['timestamp'] >= previousProcessedTime*1000:
+					if int(war['timestamp'] / 1000) >= previousProcessedTime:
 						processWar(war, cursor)
 
 		clanInfoFileNames = getDataFromServer.getFileNames('data/clanLog', '.json', previousProcessedTime)
@@ -1094,7 +1095,7 @@ def saveData(cursor = None, previousProcessedTime = None):
 				print('processing: {}'.format(filename))
 				clanInfo = json.load(open(filename))
 				for info in clanInfo:
-					if info['timestamp'] >= previousProcessedTime*1000:
+					if int(info['timestamp'] / 1000) >= previousProcessedTime:
 						processClanProfile(info, cursor)
 
 		achievementsFileNames = getDataFromServer.getFileNames('data/clanPlayerAchievements', '.json', previousProcessedTime)
@@ -1103,7 +1104,7 @@ def saveData(cursor = None, previousProcessedTime = None):
 				print('processing: {}'.format(filename))
 				clanPlayerAcievements = json.load(open(filename))
 				for clanPlayerAcievementsEntry in clanPlayerAcievements:
-					if clanPlayerAcievementsEntry['timestamp'] >= previousProcessedTime*1000:
+					if int(clanPlayerAcievementsEntry['timestamp'] / 1000) >= previousProcessedTime:
 						processClanPlayerAcievements(clanPlayerAcievementsEntry, cursor)		
 
 		if previousProcessedTime == 0:

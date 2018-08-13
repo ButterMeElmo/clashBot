@@ -75,10 +75,10 @@ def getAllMembersTagSupposedlyInClan(cursor):
 	return cursor.fetchall()
 
 def get_min_and_max_scanned_index_for_min_and_max_scanned_time(cursor, min_timestamp, max_timestamp):
-	if min_timestamp < 1995812705:
-		min_timestamp = min_timestamp * 1000
-	if max_timestamp < 1995812705:
-		max_timestamp = max_timestamp * 1000
+	if min_timestamp > 1995812705:
+		raise ValueError('Invalid timestamp, should not be milliseconds')
+	if max_timestamp > 1995812705:
+		raise ValueError('Invalid timestamp, should not be milliseconds')
 	query = '''SELECT scanned_data_index FROM SCANNED_DATA_TIMES WHERE time > ? and time < ?'''
 	cursor.execute(query, (min_timestamp, max_timestamp))
 	results = cursor.fetchall()
@@ -90,8 +90,8 @@ def get_min_and_max_scanned_index_for_min_and_max_scanned_time(cursor, min_times
 	return min_index, max_index
 
 def get_min_index_greater_than_scanned_time(cursor, min_timestamp):
-	if min_timestamp < 1995812705:
-		min_timestamp = min_timestamp * 1000
+	if min_timestamp > 1995812705:
+		raise ValueError('Invalid timestamp, should not be milliseconds')
 	query = '''SELECT scanned_data_index FROM SCANNED_DATA_TIMES WHERE time > ?'''
 	cursor.execute(query, (min_timestamp,))
 	results = cursor.fetchall()
@@ -102,8 +102,8 @@ def get_min_index_greater_than_scanned_time(cursor, min_timestamp):
 	return min_index
 
 def get_max_index_less_than_scanned_time(cursor, max_timestamp):
-	if max_timestamp < 1995812705:
-		max_timestamp = max_timestamp * 1000
+	if max_timestamp > 1995812705:
+		raise ValueError('Invalid timestamp, should not be milliseconds')
 	query = '''SELECT scanned_data_index FROM SCANNED_DATA_TIMES WHERE time < ?'''
 	cursor.execute(query, (max_timestamp,))
 	results = cursor.fetchall()
