@@ -424,7 +424,7 @@ def addAccountName(cursor, playerTag, playerName):
 
 def addScannedDataToDB(cursor, data, scanned_data_index):
 	member_tag = data['tag']
-	troops_donated = data['donations']
+	troops_donated_monthly = data['donations']
 	troops_received = data['donationsReceived']
 	allAchievements = data['achievements']
 	attacks_won = data['attackWins']
@@ -436,13 +436,16 @@ def addScannedDataToDB(cursor, data, scanned_data_index):
 		if achievement['name'] == "Sharing is caring":
 			spells_donated = achievement['value']
 
+		if achievement['name'] == "Friend in Need":
+			troops_donated_achievement =  achievement['value']
+
 	query = """
 		INSERT OR REPLACE INTO
-			SCANNED_DATA (member_tag, scanned_data_index, troops_donated, troops_received, spells_donated, clan_games_points, attacks_won, defenses_won)
+			SCANNED_DATA (member_tag, scanned_data_index, troops_donated_monthly, troops_received_monthly, spells_donated_achievement, troops_donated_achievement, clan_games_points, attacks_won, defenses_won)
 		VALUES
-			(?, ?, ?, ?, ?, ?, ?, ?);
+			(?, ?, ?, ?, ?, ?, ?, ?, ?);
 	"""
-	cursor.execute(query, (member_tag, scanned_data_index, troops_donated, troops_received, spells_donated, clan_games_points, attacks_won, defenses_won))
+	cursor.execute(query, (member_tag, scanned_data_index, troops_donated_monthly, troops_received, spells_donated, troops_donated_achievement, clan_games_points, attacks_won, defenses_won))
 
 	trophies = data['trophies']
 	
@@ -709,9 +712,9 @@ def DEBUG_ONLY_getMemberNameFromTag(cursor, tag):
 		raise ValueError('Theres not exactly one member name for member_tag: {}'.format(tag))
 	return results[0][0]
 
-def attemptToFindSiegeMachinesSinceLastProcessed():
+def attemptToFindSiegeMachinesSinceLastProcessed(cursor):
+#	query = track
 	return
-
 
 #def get_min_and_max_scanned_index_for_min_and_max_scanned_time(cursor, min_timestamp, max_timestamp):
 #	query = '''SELECT scanned_data_index FROM SCANNED_DATA_TIMES WHERE time > ? and time < ?'''
@@ -777,7 +780,7 @@ def processSeasonData(cursor, previousProcessedTime):
 				# no data from this time period
 				continue
 
-			query = '''SELECT troops_donated, troops_received, spells_donated, attacks_won, defenses_won  FROM SCANNED_DATA WHERE member_tag = ? and scanned_data_index >= ? and scanned_data_index <= ?'''
+			query = '''SELECT troops_donated_monthly, troops_received_monthly, spells_donated_achievement, attacks_won, defenses_won  FROM SCANNED_DATA WHERE member_tag = ? and scanned_data_index >= ? and scanned_data_index <= ?'''
 			cursor.execute(query, (member_tag, min_index, max_index))
 			results = cursor.fetchall()
 
@@ -810,6 +813,7 @@ def processSeasonData(cursor, previousProcessedTime):
 				final_spells_donated = results[len(results)-1][2]
 				if initial_spells_donated != None and final_spells_donated != None:
 					total_spells_donated = final_spells_donated - initial_spells_donated
+				total_troops_donated -= total_spells_donated
 			
 			query = '''INSERT OR REPLACE INTO
 					SEASON_HISTORICAL_DATA (season_ID, member_tag, troops_donated, troops_received, spells_donated, attacks_won, defenses_won)	
@@ -922,7 +926,7 @@ def processClanGamesData(cursor):
 					SELECT min(scanned_data_index) FROM 
 						SCANNED_DATA 
 					WHERE
-						scanned_data_index > ? and member_tag = ?
+						scanned_data_index >= ? and member_tag = ?
 					'''
 				cursor.execute(query, (min_index, memberTag))
 			else:
