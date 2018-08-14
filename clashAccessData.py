@@ -475,7 +475,7 @@ def get_past_war_performance_for_member_tags(member_tag_name_dict, number_of_war
 	# go backwards until we get to the first war or to where we have the total number of desired wars
 	cursor, conn = getCursorAndConnection()
 	result_dict = {}
-	result_dict['recent_wars_fought_in'] = []
+	result_dict['wars_participated_in'] = []
 	query = """
 		SELECT MAX(war_id) FROM WARS
 		"""
@@ -488,19 +488,47 @@ def get_past_war_performance_for_member_tags(member_tag_name_dict, number_of_war
 	where_clause = where_clause[:-4]
 	where_clause = "(" + where_clause + ")"
 	found = 0
-	for i in range(max_war_id, 1, -1):
+	for war_id in range(max_war_id, 1, -1):
 		print('looping')
-		query = '''SELECT war_id, attacker_tag, attacker_attack_number, attacker_position, defender_position, attacker_town_hall, defender_town_hall, stars, destruction_percentage FROM WAR_ATTACKS WHERE war_id = ? and '''
+		query = '''SELECT war_id, attacker_tag, MEMBERS.member_name, attacker_attack_number, attacker_position, defender_position, attacker_town_hall, defender_town_hall, stars, destruction_percentage, attack_occurred_after, attack_occurred_before 
+			FROM WAR_ATTACKS 
+			INNER JOIN MEMBERS ON WAR_ATTACKS.attacker_tag = MEMBERS.member_tag
+			WHERE war_id = ? and '''
 		query += where_clause
-		vars = [ i ]
+		vars = [ war_id ]
 		vars.extend(member_tag_name_dict.keys())
-		print(query)
-		print(vars)
+#		print(query)
+#		print(vars)
 		cursor.execute(query, vars)
 		results = cursor.fetchall()
-		dict_for_this_war = results
-		result_dict[i] = dict_for_this_war
 		if len(results) > 0:
+			dict_for_this_war = {}
+			dict_for_this_war['war_attacks'] = []
+			for attack in results:
+				dict_for_this_attack = {}
+				dict_for_this_attack['member_name'] = attack[2]
+				dict_for_this_attack['attack_number'] = attack[3]
+				dict_for_this_attack['attacker_position'] = attack[4]
+				dict_for_this_attack['defender_position'] = attack[5]
+				dict_for_this_attack['attacker_town_hall'] = attack[6]
+				dict_for_this_attack['defender_town_hall'] = attack[7]
+				dict_for_this_attack['stars'] = attack[8]
+				dict_for_this_attack['destruction_percentage'] = attack[9]
+				dict_for_this_attack['attack_occurred_after'] = attack[10]
+				dict_for_this_attack['attack_occurred_before'] = attack[11]
+				dict_for_this_war['war_attacks'].append(dict_for_this_attack)
+			query = '''SELECT result, war_day_start, war_day_end FROM WARS WHERE war_id = ?'''
+			cursor.execute(query, (war_id,))
+			results = cursor.fetchall()
+			if len(results) != 1:
+				raise ValueError('Why do there seem to be war attacks for this war but the war is not saved? War id was: {}'.format(war_id))
+			war_details_dict = {}
+			war_details_dict['war_id'] = war_id
+			war_details_dict['result'] = results[0][0]
+			war_details_dict['war_day_start'] = results[0][1]
+			war_details_dict['war_day_end'] = results[0][2]
+			dict_for_this_war['war_details'] = war_details_dict
+			result_dict['wars_participated_in'].append(dict_for_this_war)
 			found += 1
 		if found >= number_of_wars:
 			break
