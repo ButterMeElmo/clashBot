@@ -33,7 +33,7 @@ leader_nickname = config_bot.leader_nickname
 @discordClient.event
 async def on_member_join(member):
 	"""Says when a member joined."""
-	msg = 'Hi {0.mention}! Get started by typing !start (including the exclamation point)'.format(member)
+	msg = 'Hi {0.mention}! Please set up your account by typing: !start (including the exclamation point)'.format(member)
 	generalChannel = discordClient.get_channel(config_bot.generalChannelID)
 #	botChannel = discordClient.get_channel(config_bot.testingChannelID)
 	await discordClient.send_message(generalChannel, msg)
@@ -589,6 +589,17 @@ class ClanManagement:
 		result = clashAccessData.getAllLinkedAccountsList()
 		await discordClient.say(result)
 
+	@commands.command(name='remindtostart', pass_context=True)
+	@commands.has_role("developers")
+	async def remindToStart(self, ctx):
+		await discordClient.say('Who would you like to remind to setup their account?')
+		message = await discordClient.wait_for_message(author=ctx.message.author)
+		if len(message.mentions) > 0:
+			discordID = message.mentions[0]
+			await discordClient.on_member_join(discordID)
+		else:
+			await discordClient.say('Failed to find the mention')
+
 	@commands.command(name='givememberwarpermissions', pass_context=True)
 	@commands.has_role("developers")
 	async def giveMemberWarPermissions(self, ctx):
@@ -618,9 +629,15 @@ class ClanManagement:
 
 
 
-discordClient.add_cog(ClanWar())
-discordClient.add_cog(ClanManagement())
-discordClient.add_cog(ClanGames())
+clan_war_clog = ClanWar()
+discordClient.add_cog(clan_war_clog)
+
+clan_management_cog = ClanManagement()
+discordClient.add_cog(clan_management_cog)
+
+clan_games_cog = ClanGames()
+discordClient.add_cog(clan_games_cog)
+
 account_management_cog = AccountManagement()
 discordClient.add_cog(account_management_cog)
 
