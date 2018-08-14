@@ -657,10 +657,12 @@ async def updateRoles():
 	troopRole = find(lambda role: role.name == 'troopdonators', roles)
 	checkInRole = find(lambda role: role.name == 'MIAUsers', roles)
 	warPermsRole = find(lambda role: role.name == 'has_war_permissions', roles)
+	th12Role = find(lambda role: role.name == 'TH12', roles)
 
 	discordIDsOfMembersInClan = clashAccessData.getMembersInClan()
 	discordIDsOfWarParticipants = clashAccessData.getDiscordMembersInWar()
 	discordIDsOfMembersWithWarPermissions = clashAccessData.getDiscordIDsOfMembersWithWarPermissions()
+	discordIDsOfMembersWhoAreTH12 = clashAccessData.getDiscordIDsOfMembersWhoAreTH12()
 
 	# go through everyone in discord
 	for serverMember in server.members:
@@ -697,6 +699,14 @@ async def updateRoles():
 			else:
 				if warRole in serverMember.roles:
 					rolesToRemove.append(warRole)	
+
+			if serverMemberID in discordIDsOfMembersWhoAreTH12:
+				if not th12Role in serverMember.roles:
+					rolesToAdd.append(th12Role)
+			else:
+				if th12Role in serverMember.roles:
+					rolesToRemove.append(th12Role)
+
 			# update roles 
 			if len(rolesToAdd) > 0:
 				await discordClient.add_roles(serverMember, *rolesToAdd)

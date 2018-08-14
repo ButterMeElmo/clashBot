@@ -1145,6 +1145,27 @@ def getDiscordIDsOfMembersWithWarPermissions():
 
 	return actualResults
 
+def getDiscordIDsOfMembersWhoAreTH12():
+	cursor, conn = getCursorAndConnection()
+	query = '''SELECT DISCORD_NAMES.discord_tag
+		FROM DISCORD_NAMES
+		INNER JOIN MEMBERS
+			ON DISCORD_NAMES.member_tag = MEMBERS.member_tag
+		WHERE
+			MEMBERS.in_clan_currently = 1
+		AND
+			MEMBERS.town_hall_level = 12'''
+	cursor.execute(query)
+	results = cursor.fetchall()
+	conn.close()
+	actualResults = set()
+
+	for result in results:
+		actualResults.add(str(result[0]))
+
+	return actualResults
+	
+
 def getMembersInWarWithoutDiscordAsString():
 	resultList = getMembersInWarWithoutDiscord()
 	resultString = ""
