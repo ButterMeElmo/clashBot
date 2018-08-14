@@ -579,6 +579,7 @@ class ClanManagement:
 	@commands.command(name='linkothersaccount', pass_context=True)
 	@commands.has_role("developers")
 	async def linkOthersAccounts(self, ctx, discordID, memberName):
+		"""Allows developer to provide a discord id and membername to link an account, should use linkmemberaccount instead"""
 		memberName = memberName.upper()
 		result = clashAccessData.linkDiscordAccount(discordID, memberName, isName = True)
 		await discordClient.say(result)
