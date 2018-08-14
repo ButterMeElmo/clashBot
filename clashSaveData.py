@@ -544,6 +544,106 @@ def getNextSeasonTimeStamp(timeBeingCalulatedFrom, extraMonth):
 	return result
 		
 
+def validateSeasons(cursor, previousProcessedTime):
+	query = '''SELECT MAX(season_ID) FROM SEASONS'''
+	cursor.execute(query)
+	results = cursor.fetchall()
+	if len(results) == 0:
+		raise ValueError('no max season id?')		
+	max_season_id = results[0][0]
+	
+	full_run = False
+	# do the current season and the previous one
+	if previousProcessedTime == 0:
+		full_run = True
+
+	if full_run:
+		# our loop will check the border of the previous season as well, so don't want to check the 0th season as it doesn't exist
+		iterable = range(2, max_season_id+1)
+	else:
+		current_season_id = clashAccessData.getSeasonIdForTimestamp(previousProcessedTime)
+		iterable = range(current_season_id, max_season_id+1)
+	for season_id in iterable:
+		print('validating a season: {}'.format(season_id))
+
+		query = '''select start_time, end_time from seasons where season_ID = ?'''
+		cursor.execute(query, (season_id,))
+		results = cursor.fetchall()
+		if len(results) != 1:
+			raise ValueError('This season does not have proper start and end times')
+		season_start_time, season_end_time = results[0]
+
+		start_time_date_time = datetime.datetime.utcfromtimestamp(season_start_time)
+		start_time_date_time_aware = start_time_date_time.replace(tzinfo=pytz.utc)
+		
+		start_of_interval = start_time_date_time_aware - datetime.timedelta(hours = 4)
+		start_index = clashAccessData.get_min_index_greater_than_scanned_time(cursor, start_of_interval.timestamp())
+		end_of_interval = start_of_interval + datetime.timedelta(hours = 8)
+		end_index = clashAccessData.get_min_index_greater_than_scanned_time(cursor, end_of_interval.timestamp())
+		
+		for current_index in range(start_index, end_index+1):
+			newSeasonVote = 0
+		
+			query = '''SELECT troops_donated_monthly, troops_received_monthly, attacks_won, defenses_won FROM SCANNED_DATA WHERE scanned_data_index = ?'''
+			cursor.execute(query, (current_index,))
+			results = cursor.fetchall()
+			for entry in results:
+				donates = entry[0]
+				received = entry[1]
+				attacks = entry[2]
+				defenses = entry[3]
+#				if donates < 100 and received < 100 and attacks < 5 and defenses < 5:
+				if donates < 100 and received < 100:
+					# this is probably a new season
+					newSeasonVote += 1
+
+			number_of_members_at_this_time = len(results)
+
+			if (newSeasonVote / number_of_members_at_this_time) > .90:
+				# looks like a new season!!
+
+				# see if this is the expected time range
+				query = '''SELECT time FROM SCANNED_DATA_TIMES WHERE scanned_data_index = ?'''
+				cursor.execute(query, (current_index, ))
+				results = cursor.fetchall()
+				if len(results) != 1:
+					raise ValueError('Some issue occurred here with data times!')
+
+				possible_updated_start_timestamp = results[0][0]				
+				
+				# this is where the reset should be
+				if possible_updated_start_timestamp > season_start_time and possible_updated_start_timestamp < season_end_time:
+					print('this season seems to reset at the right time')
+					# nothing to do
+				else:
+					print('this season seems to reset before: {}'.format(possible_updated_start_timestamp))
+										
+					query = '''SELECT time FROM SCANNED_DATA_TIMES WHERE scanned_data_index = ?'''
+					cursor.execute(query, (current_index - 1, ))
+					results = cursor.fetchall()
+					if len(results) != 1:
+						raise ValueError('Some issue occurred here with data times!')
+	
+					possible_updated_end_timestamp_for_previous_season = results[0][0]				
+
+					# if I want to find when it actually reset, if there is only one top of the hour in between these times, it's almost defintely there...
+					midpoint = int((possible_updated_end_timestamp_for_previous_season + possible_updated_start_timestamp)/2)
+					new_end = midpoint - 1
+					new_start = midpoint
+
+					query = '''UPDATE SEASONS 
+						SET start_time = ?
+						WHERE season_ID = ?'''
+
+					cursor.execute(query, (new_start, season_id))
+
+					query = '''UPDATE SEASONS 
+						SET end_time = ?
+						WHERE season_ID = ?'''
+
+					cursor.execute(query, (new_end, season_id-1))
+				break
+
 def populateSeasons(cursor, initialTime):
 	startTime = initialTime
 	stopTime = datetime.datetime.utcnow()
@@ -551,16 +651,8 @@ def populateSeasons(cursor, initialTime):
 	aware_utc_dt = aware_utc_dt + datetime.timedelta(days=1)
 	while startTime < aware_utc_dt.timestamp():
 		endTime = getNextSeasonTimeStamp(startTime, False) - 1
-#		print('{} - {}'.format(startTime, endTime))
-		query = """
-			INSERT OR REPLACE INTO
-				SEASONS
-			VALUES
-				(
-				COALESCE((SELECT season_ID FROM SEASONS WHERE start_time = ? and end_time = ?), NULL)
-				, ?, ?);
-		"""
-		cursor.execute(query, (startTime, endTime, startTime, endTime))
+		query = """INSERT OR REPLACE INTO SEASONS (season_ID, start_time, end_time) SELECT NULL, ?, ? WHERE NOT EXISTS (SELECT season_id FROM SEASONS where end_time > ?)"""
+		cursor.execute(query, (startTime, endTime, startTime))
 		startTime = endTime + 1
 
 def turnClanGamesStringIntoTimestamp(clangamesString):
@@ -801,14 +893,14 @@ def processSeasonData(cursor, previousProcessedTime):
 				# no data from this time period
 				continue
 
-			query = '''SELECT troops_donated_monthly, troops_received_monthly, spells_donated_achievement, attacks_won, defenses_won  FROM SCANNED_DATA WHERE member_tag = ? and scanned_data_index >= ? and scanned_data_index <= ?'''
+			query = '''SELECT troops_donated_monthly, troops_received_monthly, spells_donated_achievement, attacks_won, defenses_won, scanned_data_index  FROM SCANNED_DATA WHERE member_tag = ? and scanned_data_index >= ? and scanned_data_index <= ?'''
 			cursor.execute(query, (member_tag, min_index, max_index))
 			results = cursor.fetchall()
 			if len(results) == 0:
 				# this member wasn't here during this period
 				continue
 			elif len(results) == 1:
-				total_troops_donated, total_troops_received, junk, attacks_won, defenses_won = datapoint
+				total_troops_donated, total_troops_received, junk, attacks_won, defenses_won, index = datapoint
 				total_spells_donated = None
 			else:
 				total_troops_donated = 0
@@ -818,8 +910,8 @@ def processSeasonData(cursor, previousProcessedTime):
 				for datapoint in results:
 					if debug:
 						print(datapoint)
-					# these last two values are used since we only want the last value after the loop
-					troops_donated, troops_received, spells_donated, attacks_won, defenses_won = datapoint
+					# the attack and win values are used since we only want the last value after the loop
+					troops_donated, troops_received, spells_donated, attacks_won, defenses_won, index = datapoint
 					if troops_donated < current_iteration_donated or troops_received < current_iteration_received:
 						total_troops_donated += current_iteration_donated
 						total_troops_received += current_iteration_received
@@ -1077,13 +1169,9 @@ def saveData(cursor = None, previousProcessedTime = None):
 		aware_utc_dt = date.replace(tzinfo=pytz.utc)
 		timestampDataProcessed = int(aware_utc_dt.timestamp())
 
-		# october 1 2017, random time
+		# starting at october 1 2017, random time
 		print('populating all seasons')
 		populateSeasons(cursor, 1506884421)
-
-		print('VALIDATE SEASONS PLEASE')
-		# go through a known good players data and determine when the season reset, and update that timestamp
-		
 
 		print('importing clan games start and end times')
 		useOldClanGamesData(cursor)
@@ -1130,6 +1218,9 @@ def saveData(cursor = None, previousProcessedTime = None):
 
 		print('processing clan games data from database')
 		processClanGamesData(cursor, previousProcessedTime)
+
+		print('validating season data')
+		validateSeasons(cursor, previousProcessedTime)
 
 		print('processing clan donation/received from database')
 		processSeasonData(cursor, previousProcessedTime)
