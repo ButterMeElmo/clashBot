@@ -714,7 +714,20 @@ def DEBUG_ONLY_getMemberNameFromTag(cursor, tag):
 	return results[0][0]
 
 def attemptToFindSiegeMachinesSinceLastProcessed(cursor):
-#	query = track
+	# iterate through each scanned time index
+		# first, check if any members left
+		# if so, don't check this period
+
+		# get all troops incoming and outgoing during this time
+		# this should NOT include spells (incoming or outgoing)
+		# if incoming and outgoing are not equal, skip this period
+
+		# check if any th 12 donated this period
+		# if no th 12 donated, skip this period (because there wouldn't be siege machines anyways)
+
+		# need to compare donations and look for instances where there appear to be one extra troop donated at a time
+		# having clan castle capacity saved would be very helpful, also want to look at some sample data so I'll come back to this
+		
 	return
 
 #def get_min_and_max_scanned_index_for_min_and_max_scanned_time(cursor, min_timestamp, max_timestamp):
