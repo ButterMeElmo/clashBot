@@ -859,7 +859,7 @@ async def startGatheringData():
 	try:
 		while True:
 			currentTimeSeconds = int(time.time())
-			print("\n\nUpdating")
+#			print("\n\nUpdating")
 
 			# allows discord to request a check whenever
 			# check once an hour normally
@@ -872,9 +872,9 @@ async def startGatheringData():
 #				await asyncio.sleep(1)
 #				continue
 
-			print("\n")
-			print('cur: {}'.format(currentTimeSeconds))
-			print('nex: {}'.format(nextTimeToCheckData))
+#			print("\n")
+#			print('cur: {}'.format(currentTimeSeconds))
+#			print('nex: {}'.format(nextTimeToCheckData))
 
 			if dataCheckOverride == True:
 				pass
@@ -885,7 +885,7 @@ async def startGatheringData():
 				pass
 			else:
 				#print("current in loop:")
-				print(currentTimeSeconds)
+				#print(currentTimeSeconds)
 				#print(timesToCheckData[0])
 				#print("sleeping")
 				await asyncio.sleep(1)
