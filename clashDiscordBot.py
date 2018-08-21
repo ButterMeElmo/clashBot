@@ -805,7 +805,9 @@ async def sendOutWarReminders():
 		if nextTimestampsForWar == None:
 			await asyncio.sleep(3600*6)
 		else:
-			timeToSleep = nextTimestampsForWar[0] - getDataFromServer.getUTCTimestamp()
+			nextWarTimestamp = nextTimestampsForWar[0][0]
+			nextWarTimestampString = nextTimestampsForWar[0][1]
+			timeToSleep = nextWarTimestamp - getDataFromServer.getUTCTimestamp()
 			await asyncio.sleep(timeToSleep)
 			
 			# update data to be sure we aren't sending reminders to people who have already attacked, just recently
@@ -814,18 +816,32 @@ async def sendOutWarReminders():
 				await asyncio.sleep(1)
 
 			accountsThatNeedToAttack = clashAccessData.getMembersInWarWithAttacksRemaining()
-			#await discordClient.send_message(botChannel, str(accountsThatNeedToAttack))
 			for discordID in accountsThatNeedToAttack:
-				accountNamesList = accountsThatNeedToAttack[discordID]
+				accountNamesDict = accountsThatNeedToAttack[discordID]
 				accountNamesString = ""
-				for accountName in accountNamesList:
-					accountNamesString += '{}, '.format(accountName)
-				accountNamesString = accountNamesString.strip(', ')
+				accountsTotal = len(accountNamesDict)
+				currentAccount = 0
+				for accountName in accountNamesDict:
+					numberOfAttacks = accountNamesDict[accountName]
+					if numberOfAttacks == 1:
+						accountNamesString += ' your {} attack with {}'.format(numberOfAttacks, accountName)
+					else:
+						accountNamesString += ' your {} attacks with {}'.format(numberOfAttacks, accountName)
+					if currentAccount == accountsTotal - 1:
+						# last account, do nothing at the end
+						accountNamesString += ''
+					elif currentAccount == accountsTotal - 2 and accountsTotal == 2:
+						accountNamesString += ' and'
+					elif currentAccount == accountsTotal - 2:
+						accountNamesString += ', and'
+					else:
+						accountNamesString += ','
+					currentAccount += 1
 				discordID = str(discordID)
 				member = server.get_member(discordID)
-				await discordClient.send_message(botChannel, 'Hey {}, make sure to use all your attacks with {}!'.format(member.mention, accountNamesString))
+				await discordClient.send_message(warChannel, 'Hey {}, make sure to use{}! {}'.format(member.mention, accountNamesString, nextWarTimestampString))
 				await asyncio.sleep(1)
-	
+
 async def startGatheringData():
 
 	print('startGatheringData starting')

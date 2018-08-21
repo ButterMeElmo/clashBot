@@ -1349,7 +1349,10 @@ def getTimestampsForCurrentWar():
 		for hourReminder in hoursRemainingReminder:
 			thisTimestamp =  warEndTime - (hourReminder * 3600)
 			if thisTimestamp > currentTimestamp:
-				results.append(thisTimestamp)
+				timeRemainingString = '{} hours remaining in war!'.format(hourReminder)
+				if hourReminder == 1:
+					timeRemainingString = '{} hour remaining in war!'.format(hourReminder)
+				results.append((thisTimestamp, timeRemainingString))
 		if len(results) == 0:
 			return None
 		else:
@@ -1412,10 +1415,13 @@ def getMembersInWarWithAttacksRemaining():
 	results = cursor.fetchall()
 	prettyResults = {}
 	for entry in results:
+		member_name = entry[0]
 		discordID = entry[1]
 		if not discordID in prettyResults:
-			prettyResults[discordID] = []
-		prettyResults[discordID].append(entry[0])
+			prettyResults[discordID] = {}
+		if not member_name in prettyResults[discordID]:
+			prettyResults[discordID][member_name] = 0
+		prettyResults[discordID][member_name] += 1
 		
 	conn.close()
 	return prettyResults
