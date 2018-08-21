@@ -14,6 +14,7 @@ import dateutil
 import getDataFromServer
 import os
 import clashAccessData
+import math
 
 db_file = "clashData.db"
 #currentSeasonIDs = {}
@@ -429,6 +430,7 @@ def addScannedDataToDB(cursor, data, scanned_data_index):
 	allAchievements = data['achievements']
 	attacks_won = data['attackWins']
 	defenses_won = data['defenseWins']
+	town_hall_level = data['townHallLevel']
 	for achievement in allAchievements:
 		if achievement['name'] == "Games Champion":
 			clan_games_points = achievement['value']
@@ -441,11 +443,11 @@ def addScannedDataToDB(cursor, data, scanned_data_index):
 
 	query = """
 		INSERT OR REPLACE INTO
-			SCANNED_DATA (member_tag, scanned_data_index, troops_donated_monthly, troops_received_monthly, spells_donated_achievement, troops_donated_achievement, clan_games_points, attacks_won, defenses_won)
+			SCANNED_DATA (member_tag, scanned_data_index, troops_donated_monthly, troops_received_monthly, spells_donated_achievement, troops_donated_achievement, clan_games_points, attacks_won, defenses_won, town_hall_level)
 		VALUES
-			(?, ?, ?, ?, ?, ?, ?, ?, ?);
+			(?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 	"""
-	cursor.execute(query, (member_tag, scanned_data_index, troops_donated_monthly, troops_received, spells_donated, troops_donated_achievement, clan_games_points, attacks_won, defenses_won))
+	cursor.execute(query, (member_tag, scanned_data_index, troops_donated_monthly, troops_received, spells_donated, troops_donated_achievement, clan_games_points, attacks_won, defenses_won, town_hall_level))
 
 	trophies = data['trophies']
 	
@@ -805,22 +807,371 @@ def DEBUG_ONLY_getMemberNameFromTag(cursor, tag):
 		raise ValueError('Theres not exactly one member name for member_tag: {}'.format(tag))
 	return results[0][0]
 
-def attemptToFindSiegeMachinesSinceLastProcessed(cursor):
-	# iterate through each scanned time index
-		# first, check if any members left
-		# if so, don't check this period
-
-		# get all troops incoming and outgoing during this time
-		# this should NOT include spells (incoming or outgoing)
-		# if incoming and outgoing are not equal, skip this period
-
-		# check if any th 12 donated this period
-		# if no th 12 donated, skip this period (because there wouldn't be siege machines anyways)
-
-		# need to compare donations and look for instances where there appear to be one extra troop donated at a time
-		# having clan castle capacity saved would be very helpful, also want to look at some sample data so I'll come back to this
-		
+def attemptToFindSiegeMachinesSinceLastProcessed(cursor, previousProcessedTime):
 	return
+	data = {}
+
+	data[3] = {}
+	data[3]['Troops'] = 10
+	data[3]['Spells'] = 0
+	data[3]['Siege Machine'] = 0
+
+	data[4] = {}
+	data[4]['Troops'] = 15
+	data[4]['Spells'] = 0
+	data[4]['Siege Machine'] = 0
+
+	data[5] = {}
+	data[5]['Troops'] = 15
+	data[5]['Spells'] = 0
+	data[5]['Siege Machine'] = 0
+
+	data[6] = {}
+	data[6]['Troops'] = 20
+	data[6]['Spells'] = 0
+	data[6]['Siege Machine'] = 0
+
+	data[7] = {}
+	data[7]['Troops'] = 20
+	data[7]['Spells'] = 0
+	data[7]['Siege Machine'] = 0
+
+	data[8] = {}
+	data[8]['Troops'] = 25
+	data[8]['Spells'] = 1
+	data[8]['Siege Machine'] = 0
+
+	data[9] = {}
+	data[9]['Troops'] = 30
+	data[9]['Spells'] = 1
+	data[9]['Siege Machine'] = 0
+
+	data[10] = {}
+	data[10]['Troops'] = 35
+	data[10]['Spells'] = 1
+	data[10]['Siege Machine'] = 1
+
+	data[11] = {}
+	data[11]['Troops'] = 35
+	data[11]['Spells'] = 2
+	data[11]['Siege Machine'] = 1
+
+	data[12] = {}
+	data[12]['Troops'] = 40
+	data[12]['Spells'] = 2
+	data[12]['Siege Machine'] = 1
+ 
+	query = '''SELECT MAX(scanned_data_index) FROM SCANNED_DATA_TIMES'''
+	cursor.execute(query)
+	results = cursor.fetchall()
+	if len(results) == 0:
+		raise ValueError('no scanned data times?')		
+	max_scanned_data_index = results[0][0]
+	
+	full_run = True # change me
+	# do the current season and the previous one
+	if previousProcessedTime == 0:
+		full_run = True
+
+	# remember, range caps at the upper limit and does NOT run it, so +1 in this case :)
+	if full_run:
+		iterable = range(1, max_scanned_data_index+1)
+	else:
+		# change me
+		iterable = range(index_that_was_last_done, max_scanned_data_index+1)
+	
+	last_data_set = {}
+	current_data_set = {}
+
+	overall_results = {}
+
+	discarded_previous_data = False
+	for scanned_data_index in iterable:
+
+		if discarded_previous_data:
+			last_data_set = current_data_set
+			discarded_previous_data = False
+
+		debug = False
+#		if scanned_data_index == 2546:
+#			debug = True
+	
+		if debug:
+			print('processing a scanned_data_index: {}'.format(scanned_data_index))
+		query = '''SELECT
+			member_tag, troops_donated_monthly, troops_received_monthly, spells_donated_achievement, troops_donated_achievement, town_hall_level
+			FROM SCANNED_DATA
+			WHERE SCANNED_DATA_INDEX = ?'''
+		vars = (scanned_data_index,)
+		cursor.execute(query, vars)
+		results = cursor.fetchall()
+
+		# let's make this data set more managable
+		current_data_set = {}
+		for data_point in results:
+			member_tag = data_point[0]
+			rest_of_data = data_point[1:]
+			current_data_set[member_tag] = rest_of_data
+		data_modified_as_it_was_pulled = False
+
+		current_list = [*current_data_set.keys()]
+		current_list.sort()
+		prev_list = [*last_data_set.keys()]
+		prev_list.sort()
+
+		# I can examine tracking some data from these periods but it wouldn't be everything, and is a relatively small amount of data
+		if current_list != prev_list:
+			if debug:
+				print('this data should be discarded due to someone leaving or joining')
+			discarded_previous_data = True
+			continue
+
+		# let's separate out the number of troops+siege sent and given, as well as the number of spells given
+		for member_tag in current_data_set:
+				# this data needs subtracted
+				troops_donated_monthly, troops_received_monthly, spells_donated_achievement, troops_donated_achievement, town_hall_level = current_data_set[member_tag]
+				troops_donated_monthly_prev, troops_received_monthly_prev, spells_donated_achievement_prev, troops_donated_achievement_prev, town_hall_level = last_data_set[member_tag]
+
+				# this is simple subtraction using previous achievements/scanned data
+				member_donated_troops_and_spells_and_siege = troops_donated_monthly - troops_donated_monthly_prev
+				member_received_troops_and_spells_and_siege = troops_received_monthly - troops_received_monthly_prev
+				member_donated_spells = spells_donated_achievement - spells_donated_achievement_prev
+				member_donated_troops_and_siege = troops_donated_achievement - troops_donated_achievement_prev
+
+				# if these numbers don't match, the data was taken during the middle of a change in data.
+				# the next set of data will hopefully line up, so we won't use the current data set
+				# in the future, I should consider tracking how long data has been misaligned 
+				# as it could be worth dropping the first data set rather than continuing on for a while until someone leaves
+				# let's verify our data is good:
+				if (member_donated_troops_and_spells_and_siege - member_donated_spells) != member_donated_troops_and_siege:
+					data_modified_as_it_was_pulled = True
+
+		if data_modified_as_it_was_pulled:
+			# it looks like we pulled data during a change
+			if debug:
+				print('skipping this index, due to data being modified as it was pulled')
+			continue
+
+		# we can know how many were given, but let's see how close we can get, using the same algorithm as we will be forced to use for siege machines
+		number_of_spells_known_donated = 0
+		number_of_spells_suspected_received = 0 
+		number_of_suspected_siege_machines_receieved = 0
+
+		# this can track who appears to have donated the siege and spells, and should replace the two suspected variables above
+		appears_to_have_received_siege_machines = {}
+		appears_to_have_received_spells = {}
+
+		# first, iterate through and calculate how many spells are known to be given, and therefore received
+		for member_tag in current_data_set:
+			troops_donated_monthly, troops_received_monthly, spells_donated_achievement, troops_donated_achievement, town_hall_level = current_data_set[member_tag]
+			troops_donated_monthly_prev, troops_received_monthly_prev, spells_donated_achievement_prev, troops_donated_achievement_prev, town_hall_level = last_data_set[member_tag]
+
+			# these are the known spells donated
+			member_donated_spells = spells_donated_achievement - spells_donated_achievement_prev
+			number_of_spells_known_donated += member_donated_spells
+
+			# this is solely debugging
+			troops_donated_this_period = troops_donated_monthly - troops_donated_monthly_prev
+			if troops_donated_this_period > 0 and debug:
+				print('')
+				print('TH {} donated total: {}'.format(town_hall_level, troops_donated_this_period))
+				print('TH {} donated spells: {}'.format(town_hall_level, (spells_donated_achievement-spells_donated_achievement_prev)))
+				print('TH {} donated troops: {}'.format(town_hall_level, (troops_donated_achievement-troops_donated_achievement_prev)))
+				print('')
+
+		# next, look at the received and count how many appear to be there
+		for member_tag in current_data_set:
+			troops_donated_monthly, troops_received_monthly, spells_donated_achievement, troops_donated_achievement, town_hall_level = current_data_set[member_tag]
+			troops_donated_monthly_prev, troops_received_monthly_prev, spells_donated_achievement_prev, troops_donated_achievement_prev, town_hall_level = last_data_set[member_tag]
+
+			# this is everything they received combined
+			troops_siege_spells_received = troops_received_monthly - troops_received_monthly_prev 
+
+			# determine how many CC refills this looks like by seeing the limits it has
+			cc_troop_size = data[town_hall_level]['Troops']
+			cc_spell_size = data[town_hall_level]['Spells']
+			cc_siege_size = data[town_hall_level]['Siege Machine']
+			max_size_per_refill = cc_troop_size + cc_spell_size + cc_siege_size
+			num_refills = math.ceil(troops_siege_spells_received / max_size_per_refill)
+			# this is the number of troops that appear as leftovers
+			remainder = troops_siege_spells_received % cc_troop_size
+			#remainder = troops_siege_spells_received - cc_troop_size * num_refills
+			
+			likely_spells_received = 0
+			likely_siege_received = 0
+
+			if troops_siege_spells_received > 0 and debug:
+				print('')
+				print('TH {} received total: {} on {} refills'.format(town_hall_level, troops_siege_spells_received, num_refills))
+
+			# these are likely_received
+			if remainder <= (cc_spell_size + cc_siege_size) * num_refills and remainder > 0:
+				list_of_remainders = []
+				# if there are a small number of donations, it's hard to differentiate between one archer, one spell, one siege, etc
+				# I am assuming these are usually spells for now. Could do something with the known number of spells to increase accuracy
+				if num_refills > 1:
+					floored_value = int(remainder / num_refills)
+					need_to_add = remainder - (floored_value * num_refills)
+					for i in range(0, num_refills):
+						val_to_use = floored_value
+						if need_to_add > 0:
+							need_to_add -= 1
+							val_to_use += 1
+						list_of_remainders.append(val_to_use)
+				else:
+					list_of_remainders.append(remainder)
+
+				for val in list_of_remainders:
+					# here I determine how to distribute remainders
+					# 0 happens when there are more refills than the remainder, for example 1, 1, 0 as 3 requests's remainders
+					if val == 0:
+						continue
+					elif val == 1 and cc_spell_size > 0:
+						likely_spells_received += 1
+					elif val == 2 and cc_spell_size == 2:
+						likely_spells_received += 2
+					elif val == 2 and cc_spell_size == 1 and cc_siege_size == 1:
+						likely_spells_received += 1
+						likely_siege_received += 1
+					elif val == 3 and cc_spell_size == 2 and cc_siege_size == 1:
+						likely_spells_received += 2
+						likely_siege_received += 1
+					else:
+						print('')
+						print('troops received: {}'.format(troops_siege_spells_received))
+						print('cc size troops: {}'.format(cc_troop_size))
+						print('cc size spells: {}'.format(cc_spell_size))
+						print('cc size sieges: {}'.format(cc_siege_size))
+						print('remainder was: {}'.format(remainder))
+						print('num refills: {}'.format(num_refills))	
+						print('distributing received as: {}'.format(list_of_remainders))
+						print('interpreted as {} spells'.format(likely_spells_received))
+						print('interpreted as {} siege'.format(likely_siege_received))
+						raise ValueError('inspect these values')
+				if debug:
+					print('')
+					print('troops received: {}'.format(troops_siege_spells_received))
+					print('cc size troops: {}'.format(cc_troop_size))
+					print('cc size spells: {}'.format(cc_spell_size))
+					print('cc size sieges: {}'.format(cc_siege_size))
+					print('remainder was: {}'.format(remainder))
+					print('num refills: {}'.format(num_refills))	
+					print('distributing received as: {}'.format(list_of_remainders))
+					print('interpreted as {} spells'.format(likely_spells_received))
+					print('interpreted as {} siege'.format(likely_siege_received))
+
+			if likely_siege_received > 0 and cc_siege_size == 0:
+				raise ValueError('Examine these values to see why I think there is a siege machine when it cannot be')
+
+			# track who is likely to have received these
+			if likely_spells_received > 0:
+				number_of_spells_suspected_received += likely_spells_received
+				appears_to_have_received_spells[member_tag] = likely_spells_received
+			if likely_siege_received > 0:
+				number_of_suspected_siege_machines_receieved += likely_siege_received
+				appears_to_have_received_siege_machines[member_tag] = likely_siege_received
+
+		# for spells, compare the known given vs likely recevied and determine what to do?
+
+
+
+		if number_of_spells_known_donated > 0 or number_of_spells_suspected_received > 0 or number_of_suspected_siege_machines_receieved > 0:	
+			if debug == True:
+				print('Checking spell data:')
+				print('num known spells donated: {}'.format(number_of_spells_known_donated))
+				print('num thought spells donated: {}'.format(number_of_spells_suspected_received))
+				print('num thought siege donated: {}'.format(number_of_suspected_siege_machines_receieved))
+				print('')
+
+		possibly_donated_siege = {}
+
+		for member_tag in current_data_set:
+			troops_donated_monthly, troops_received_monthly, spells_donated_achievement, troops_donated_achievement, town_hall_level = current_data_set[member_tag]
+			troops_donated_monthly_prev, troops_received_monthly_prev, spells_donated_achievement_prev, troops_donated_achievement_prev, town_hall_level = last_data_set[member_tag]
+
+			troops_donated_during_this_period = troops_donated_monthly - troops_donated_monthly_prev
+
+			# adjust the numbers so that we make sure we don't give credit to a TH 12 for a siege machine if they are the ones who got it
+			number_of_siege_machines_suspected_excluding_this_member = number_of_suspected_siege_machines_receieved
+			if member_tag in appears_to_have_received_siege_machines:
+				number_of_siege_machines_suspected_excluding_this_member -= appears_to_have_received_siege_machines[member_tag]
+
+			# using the adjusted number, check if this member probably donated
+			if town_hall_level == 12 and troops_donated_during_this_period > 0 and number_of_siege_machines_suspected_excluding_this_member > 0:
+				possibly_donated_siege[member_tag] = number_of_siege_machines_suspected_excluding_this_member
+
+		# these possibly did
+		for member_tag in possibly_donated_siege:
+			print_possible = False
+			if print_possible:
+				print('')
+				query = '''select member_name from members where member_tag = ?'''
+				cursor.execute(query, (member_tag,))
+				member_name = cursor.fetchall()[0][0]
+				print('there are {} possible sieges up for grabs, and {} had {} donates during this time'.format(number_of_siege_machines_suspected_excluding_this_member, member_name, troops_donated_during_this_period))
+				print('')
+
+		# determine if the sum of donates of the possibly_donated_siege list is less or equal to total siege
+		# if so, give credit to each member for their total donates
+		sum = 0
+		for member_tag in possibly_donated_siege:
+			sum += possibly_donated_siege[member_tag]
+		if sum <= number_of_suspected_siege_machines_receieved:
+			# each member gets credit
+			for member_tag in possibly_donated_siege:
+				print('')
+				query = '''select member_name from members where member_tag = ?'''
+				cursor.execute(query, (member_tag,))
+				member_name = cursor.fetchall()[0][0]
+				num_sieges_for_this_member = possibly_donated_siege[member_tag]
+				print('{} donated {} sieges'.format(member_name, num_sieges_for_this_member))
+				if member_tag not in overall_results:
+					overall_results[member_tag] = 0
+				overall_results[member_tag] += num_sieges_for_this_member
+		elif number_of_suspected_siege_machines_receieved > 0 and len(possibly_donated_siege) == 1:
+				print('')
+				query = '''select member_name from members where member_tag = ?'''
+				cursor.execute(query, (member_tag,))
+				member_name = cursor.fetchall()[0][0]
+				num_sieges_for_this_member = min(number_of_suspected_siege_machines_receieved, possibly_donated_siege[member_tag])
+				print('{} donated {} sieges'.format(member_name, num_sieges_for_this_member))
+			
+								
+		# if the sum of donates of the possibly_donated_siege list is less or equal to total siege, give credit to each member for their total donats
+		# if there is only one person, then give them credit for the number of sieges expected, or their donates, whichever is less
+		# otherwise, we can't be sure how to break them up
+
+		# we have finished with this data set, and want to use it next time through as the starting point for calculations
+		last_data_set = current_data_set
+
+
+	print('------------')
+	for member_tag in overall_results:
+		print('')
+		query = '''select member_name from members where member_tag = ?'''
+		cursor.execute(query, (member_tag,))
+		member_name = cursor.fetchall()[0][0]
+		num_sieges_for_this_member = overall_results[member_tag]
+		print('{} donated {} sieges'.format(member_name, num_sieges_for_this_member))
+
+
+		# for sieges, compare the likely received vs the possible given
+		# for the possible given, can narrow down among the th 12 by looking at nice round numbers of troops given
+
+#		detetermine how many th12 have donated anything during this time.
+#		if 0
+#			look closer to discover why i am wrong lol
+#		if only 1
+#			any siege has to be them
+#		if more than 1
+#			look for them donating 30 vs 31 vs 1
+#			30 is probably not a siege machine
+#			5 or less is likely
+#			31, 36, 41, is very likely
+#			
+#			update in sql, not in dict like I am
+#			member['??']member_donated_siege_i_think += 1
+#			member['??']member_donated_troops_i_think -= 1
 
 #def get_min_and_max_scanned_index_for_min_and_max_scanned_time(cursor, min_timestamp, max_timestamp):
 #	query = '''SELECT scanned_data_index FROM SCANNED_DATA_TIMES WHERE time > ? and time < ?'''
@@ -1224,6 +1575,9 @@ def saveData(cursor = None, previousProcessedTime = None):
 
 		print('processing clan donation/received from database')
 		processSeasonData(cursor, previousProcessedTime)
+
+		print('searching for siege machines')
+		attemptToFindSiegeMachinesSinceLastProcessed(cursor, previousProcessedTime)
 
 		print('marking as completed')
 		markProcessingTime(cursor, timestampDataProcessed)
