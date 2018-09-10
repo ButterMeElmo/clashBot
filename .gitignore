@@ -5,9 +5,13 @@ __pycache__/
 
 # Unit test / coverage reports
 .pytest_cache/
+.coverage
 
 # Dependency directories
 node_modules/
+
+# virtualenv
+env/
 
 data/*
 config_bot.json
