@@ -871,7 +871,8 @@ def attemptToFindSiegeMachinesSinceLastProcessed(cursor, previousProcessedTime):
 	if full_run:
 		iterable = range(1, max_scanned_data_index+1)
 	else:
-		# change me
+		# change me - what if data was saved but sieges were not processed? sounds like I need to track the last successful processing of this as well.
+		index_that_was_last_done = 1
 		iterable = range(index_that_was_last_done, max_scanned_data_index+1)
 	
 	last_data_set = {}
