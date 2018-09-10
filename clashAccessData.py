@@ -618,8 +618,8 @@ def getAllDonatedOrReceivedInTimeFrame(time_created, time_finished):
 	resultDict['standard'] = []
 	resultDict['joined_since_created'] = []
 	resultDict['debug'] = [time_created, time_finished]
-	time_created = time_created * 1000
-	time_finished = time_finished * 1000
+	time_created = time_created
+	time_finished = time_finished
 	cursor, conn = getCursorAndConnection()
 	membersInClan = getAllMembersTagSupposedlyInClan(cursor)
 	for memberTag in membersInClan:
