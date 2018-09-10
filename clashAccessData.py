@@ -319,7 +319,10 @@ def getNewWarRoster2():
 	for i in range(0, len(membersList)):
 		memberName = membersList[i]
 		if memberName in roster:
-			result += str(i+1) + ") " + memberName + "\n"		
+			if memberName in addedToFillString:
+				result += str(i+1) + ") *" + memberName + "*\n"		
+			else:
+				result += str(i+1) + ") " + memberName + "\n"		
 		
 	conn.close()
 	return result + addedToFillString + warSizeString
