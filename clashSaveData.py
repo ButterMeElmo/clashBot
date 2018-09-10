@@ -547,24 +547,18 @@ def getNextSeasonTimeStamp(timeBeingCalulatedFrom, extraMonth):
 		
 
 def validateSeasons(cursor, previousProcessedTime):
-	query = '''SELECT MAX(season_ID) FROM SEASONS'''
-	cursor.execute(query)
-	results = cursor.fetchall()
-	if len(results) == 0:
-		raise ValueError('no max season id?')		
-	max_season_id = results[0][0]
-	
 	full_run = False
 	# do the current season and the previous one
 	if previousProcessedTime == 0:
 		full_run = True
 
+	previously_validated_season_id = clashAccessData.getSeasonIdForTimestamp(previousProcessedTime)
+	current_season_id = clashAccessData.getSeasonIdForTimestamp(getDataFromServer.getUTCTimestamp())
 	if full_run:
 		# our loop will check the border of the previous season as well, so don't want to check the 0th season as it doesn't exist
-		iterable = range(2, max_season_id+1)
+		iterable = range(2, current_season_id+1)
 	else:
-		current_season_id = clashAccessData.getSeasonIdForTimestamp(previousProcessedTime)
-		iterable = range(current_season_id, max_season_id+1)
+		iterable = range(previously_validated_season_id, current_season_id+1)
 	for season_id in iterable:
 		print('validating a season: {}'.format(season_id))
 
@@ -1195,24 +1189,18 @@ def attemptToFindSiegeMachinesSinceLastProcessed(cursor, previousProcessedTime):
 #	return min_index
 
 def processSeasonData(cursor, previousProcessedTime):
-	query = '''SELECT MAX(season_ID) FROM SEASONS'''
-	cursor.execute(query)
-	results = cursor.fetchall()
-	if len(results) == 0:
-		raise ValueError('no max season id?')		
-	max_season_id = results[0][0]
-	
 	full_run = False
 	# do the current season and the previous one
 	if previousProcessedTime == 0:
 		full_run = True
 
+	previously_validated_season_id = clashAccessData.getSeasonIdForTimestamp(previousProcessedTime)
+	current_season_id = clashAccessData.getSeasonIdForTimestamp(getDataFromServer.getUTCTimestamp())
 	# remember, range caps at the upper limit and does NOT run it, so +1 in this case :)
 	if full_run:
-		iterable = range(1, max_season_id+1)
+		iterable = range(1, current_season_id+1)
 	else:
-		current_season_id = clashAccessData.getSeasonIdForTimestamp(previousProcessedTime)
-		iterable = range(current_season_id, max_season_id+1)
+		iterable = range(previously_validated_season_id, current_season_id+1)
 	for season_id in iterable:
 		print('processing a season: {}'.format(season_id))
 
