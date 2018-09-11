@@ -4,6 +4,9 @@ from subprocess import call
 import datetime
 import pytz
 
+class SupercellDataFetcher:
+    pass
+
 def getDataFromServer():
 	call(["node", "discordBot.js", ">", "/dev/null"])
 

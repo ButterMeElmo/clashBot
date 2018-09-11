@@ -13,6 +13,9 @@ node_modules/
 # virtualenv
 env/
 
+clashBot.egg-info/
+
+
 clashBot/data/*
 clashBot/config_bot.json
 clashBot/clashData.db
