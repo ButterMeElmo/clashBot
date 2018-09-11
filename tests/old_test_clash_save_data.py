@@ -5,7 +5,7 @@ import sqlite3
 import os
 import datetime
 import pytest
-import getDataFromServer
+import clashBot.supercell_data_fetcher
 import clashSaveData
 from helper_for_testing import patch_datetime_now
 import json

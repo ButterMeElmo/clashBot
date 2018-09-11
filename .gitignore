@@ -13,12 +13,12 @@ node_modules/
 # virtualenv
 env/
 
-data/*
-config_bot.json
-clashData.db
-config_bot.py
-discordBot.js
-clashWebServer.py
-manuallyInputtingDataConversion/*
-!manuallyInputtingDataConversion/1_clanGamesMain.json
-clashData.db-journal
+clashBot/data/*
+clashBot/config_bot.json
+clashBot/clashData.db
+clashBot/config_bot.py
+clashBot/discordBot.js
+clashBot/clashWebServer.py
+clashBot/manuallyInputtingDataConversion/*
+!clashBot/manuallyInputtingDataConversion/1_clanGamesMain.json
+clashBot/clashData.db-journal
