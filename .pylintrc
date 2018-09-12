@@ -266,7 +266,7 @@ const-naming-style=UPPER_CASE
 
 # Regular expression matching correct constant names. Overrides const-naming-
 # style
-const-rgx='[a-z_][a-zA-Z0-9_]{2,30}$'
+#const-rgx=
 
 # Minimum line length for functions/classes that require docstrings, shorter
 # ones are exempt.
@@ -399,7 +399,7 @@ indent-after-paren=4
 
 # String used as indentation unit. This is usually "    " (4 spaces) or "\t" (1
 # tab).
-indent-string='\t'
+indent-string='    '
 
 # Maximum number of characters on a single line.
 max-line-length=100
