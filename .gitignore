@@ -15,6 +15,8 @@ env/
 
 clashBot.egg-info/
 
+# vim .swp files
+*.swp
 
 clashBot/data/*
 clashBot/config_bot.json
