@@ -1,2 +1,2 @@
 from setuptools import setup
-setup(name='clashBot', packages=['clashBot'])
+setup(name='ClashBot', packages=['ClashBot'])

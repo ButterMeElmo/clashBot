@@ -3,23 +3,14 @@ import json
 from subprocess import call
 import datetime
 import pytz
+from .date_fetcher_formatter import DateFetcherFormatter
 
 class SupercellDataFetcher:
+
+    date_fetcher_formatter = DateFetcherFormatter()
+    
     def getDataFromServer(self):
         call(["node", "discordBot.js", ">", "/dev/null"])
-
-    def getUTCDateTime(self):
-        date = datetime.datetime.utcnow()
-        counter_aware_utc_dt = date.replace(tzinfo=pytz.utc)
-        return counter_aware_utc_dt
-
-    def getUTCTimestamp(self):
-        return int(self.getUTCDateTime().timestamp())
-
-    def getPrettyTimeStringFromUTCTimestamp(self, timestamp):
-        date = datetime.datetime.utcfromtimestamp(timestamp)
-        counter_aware_utc_dt = date.replace(tzinfo=pytz.utc)
-        return str(counter_aware_utc_dt)
 
     def getFileNames(self, startingFileName, extension, startingTimeStamp):
         date = datetime.datetime.utcfromtimestamp(startingTimeStamp)
@@ -27,7 +18,7 @@ class SupercellDataFetcher:
 
         results = []
 
-        endOfToday = self.getUTCDateTime().replace(hour = 23, minute=59, second=59)
+        endOfToday = self.date_fetcher_formatter.getUTCDateTime().replace(hour = 23, minute=59, second=59)
 
         while counter_aware_utc_dt <= endOfToday:
             results.append(self.getFileName(startingFileName, extension, counter_aware_utc_dt))
@@ -39,7 +30,7 @@ class SupercellDataFetcher:
 
     def getFileName(self, startingFileName, extension, date = None):
         if date == None:
-            date = self.getUTCDateTime()
+            date = self.date_fetcher_formatter.getUTCDateTime()
         year = date.year
         month = date.month
         day = date.day
@@ -50,8 +41,6 @@ class SupercellDataFetcher:
     def validateData(self, directoryForData = 'data'):
         """
         Makes sure the data pull was successful.
-        Should I reduce a lot of these exceptions?
-        I think yes...
         """
         datasets = []
 
@@ -75,7 +64,7 @@ class SupercellDataFetcher:
             print('A file does not contain valid json: {}'.format(e))
             return False
 
-        currentTime = self.getUTCTimestamp() * 1000
+        currentTime = self.date_fetcher_formatter.getUTCTimestamp() * 1000
 
         for dataset in datasets:
             if len(dataset) == 0:

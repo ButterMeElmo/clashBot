@@ -13,17 +13,17 @@ node_modules/
 # virtualenv
 env/
 
-clashBot.egg-info/
+ClashBot.egg-info/
 
 # vim .swp files
 *.swp
 
-clashBot/data/*
-clashBot/config_bot.json
-clashBot/clashData.db
-clashBot/config_bot.py
-clashBot/discordBot.js
-clashBot/clashWebServer.py
-clashBot/manuallyInputtingDataConversion/*
-!clashBot/manuallyInputtingDataConversion/1_clanGamesMain.json
-clashBot/clashData.db-journal
+ClashBot/data/*
+ClashBot/config_bot.json
+ClashBot/clashData.db
+ClashBot/config_bot.py
+ClashBot/discordBot.js
+ClashBot/clashWebServer.py
+ClashBot/manuallyInputtingDataConversion/*
+!ClashBot/manuallyInputtingDataConversion/1_clanGamesMain.json
+ClashBot/clashData.db-journal
