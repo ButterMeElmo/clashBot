@@ -7,15 +7,6 @@ from sqlalchemy import create_engine
 Base = declarative_base()
 metadata = Base.metadata
 
-
-class CLAN(Base):
-    __tablename__ = 'CLANS'
-
-    clan_tag = Column(String(20), primary_key=True)
-    clan_name = Column(String(50))
-
-    
-
 class CLANGAME(Base):
     __tablename__ = 'CLAN_GAMES'
 
