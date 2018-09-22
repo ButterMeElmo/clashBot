@@ -64,7 +64,7 @@ def test_add_clans_to_db_duplicates(test_db_session, fetched_data_processor, cla
 
     for clan_tag in result_dict:
         required_clan_name = result_dict[clan_tag]
-        db_results = test_db_session.query(CLAN).filter(clan_tag = clan_tag)
+        db_results = test_db_session.query(CLAN).filter_by(clan_tag = clan_tag).all()
         assert len(db_results) == 1
-        name_in_db = db_results[0].clan_tag
+        name_in_db = db_results[0].clan_name
         assert name_in_db == required_clan_name
