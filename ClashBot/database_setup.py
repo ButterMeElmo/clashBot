@@ -2,6 +2,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
+from ClashBot.models.meta import Base
+
 class DatabaseSetup:
 
     database_sessions = {}
@@ -14,7 +16,7 @@ class DatabaseSetup:
             engine = create_engine(engine_string)
             Session = sessionmaker(bind=engine)
 
-            Base = declarative_base()
+            # 1 - Base comes from the models module
 
             # 2 - generate database schema
             Base.metadata.create_all(engine)
