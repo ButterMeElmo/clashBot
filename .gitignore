@@ -27,3 +27,7 @@ ClashBot/clashWebServer.py
 ClashBot/manuallyInputtingDataConversion/*
 !ClashBot/manuallyInputtingDataConversion/1_clanGamesMain.json
 ClashBot/clashData.db-journal
+
+# files I am working on and don't want uploaded
+*.wip
+*.old
