@@ -142,5 +142,17 @@
         "stopTime": "2018-08-20 08:00:00+00:00",
         "topTierScore": 50000,
         "personalCap": 4000
+    },
+    {
+        "startTime": "2018-08-29 08:00:00+00:00",
+        "stopTime": "2018-09-04 08:00:00+00:00",
+        "topTierScore": 50000,
+        "personalCap": 4000
+    },
+    {
+        "startTime": "2018-09-10 08:00:00+00:00",
+        "stopTime": "2018-09-17 08:00:00+00:00",
+        "topTierScore": 50000,
+        "personalCap": 4000
     }
 ]
