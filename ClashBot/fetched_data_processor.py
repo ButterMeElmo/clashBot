@@ -21,21 +21,6 @@ from ClashBot import DatabaseSetup
 
 class FetchedDataProcessor:
     
-
-#    def save_data(self, session = DatabaseSetup.get_session(), previousProcessedTime = None):
-#        clan_tag = "#hdgdurv2"
-#        exists = session.query(CLAN).filter_by(clan_tag=clan_tag).first()
-#        if exists:
-#            print('exists')
-#        else:
-#            print('adding')
-#            clan_1 = CLAN(clan_tag = clan_tag, clan_name = "clan name here!")
-#            session.add(clan_1)
-#            session.commit()
-#        session.close()
-    
-    #currentSeasonIDs = {}
-
     date_fetcher_formatter = DateFetcherFormatter()
 
 # imports
