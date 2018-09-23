@@ -4,3 +4,4 @@ class CLAN(Base):
     __tablename__ = 'CLANS'
 
     clan_tag = Column(String(20), primary_key=True)
+    clan_name = Column(String(50))
