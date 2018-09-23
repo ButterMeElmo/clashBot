@@ -15,7 +15,7 @@ import os
 import math
 
 from ClashBot import DateFetcherFormatter
-from ClashBot.models import CLAN
+from ClashBot.models import CLAN, MEMBER
 
 from ClashBot import DatabaseSetup
 
@@ -57,8 +57,14 @@ class FetchedDataProcessor:
             clan_to_add = CLAN(clan_tag = clan_tag, clan_name = clan_name)
             session.add(clan_to_add)
 
-    def addMemberToDB(self, cursor, tag, name, role, townHallLevel, lastSeenInWar):
-        pass
+    def addMemberToDB(self, session, member_tag, member_name, member_role, trophy_count, town_hall_level, data_time, last_seen_in_war = 0, in_clan_currently = 1, in_war_currently = 0):
+        member = session.query(MEMBER)
+        if member:
+            pass
+            # what to do if member exists already?
+        else:
+            pass
+            
     def addDonationsToDB(self, cursor, clanTag, memberTag, donated, received, seasonID):
         pass
     def addWarAttackToDB(cursor, warAttackDict):

@@ -1,5 +1,5 @@
 import pytest
-from ClashBot.models import CLAN
+from ClashBot.models import CLAN, MEMBER
 from ClashBot import FetchedDataProcessor, DatabaseSetup
 import os
 
@@ -9,9 +9,6 @@ def fetched_data_processor():
     This is a fixture for use in all tests in the module.
     """
     return FetchedDataProcessor()
-
-def test_create_database_if_not_exists():
-    pass
 
 @pytest.fixture
 def test_db_session(tmpdir):
@@ -68,3 +65,55 @@ def test_add_clans_to_db_duplicates(test_db_session, fetched_data_processor, cla
         assert len(db_results) == 1
         name_in_db = db_results[0].clan_name
         assert name_in_db == required_clan_name
+
+@pytest.mark.parametrize('member_list', [[
+        ('AWIOFJ','aowen', 'elder', 1523, 12),
+        ('tag here','name here', 'co_leader', 235, 13),
+        ('tag here', 'new name here', 'leader', 5007, 1)
+        ]])
+@pytest.mark.skip(reason="implementing scanned data first")
+def test_add_members_to_db_defaults(test_db_session, fetched_data_processor, member_list):
+    expected_results = {}
+    for member in member_list:
+        tag, name, role, trophies, th_level = member
+        expected_results[tag] = member
+        fetched_data_processor.addMemberToDB(test_db_session, tag, name, role, trophies, th_level)
+
+    for tag in expected_results:
+        tag, name, role, trophies, th_level = member
+        db_results = test_db_session.query(MEMBER).filter_by(member_tag = tag).all()
+        assert len(db_results) == 1
+        member_results = db_results[0]
+        assert member_results.member_tag == tag
+        assert member_results.member_name == name
+        assert member_results.role == role
+        assert member_results.town_hall_level == trophies
+        assert member_results.in_clan_currently == 1
+        assert member_results.in_war_currently == 0
+        assert member_results.last_seen_in_war == 0
+        
+@pytest.mark.parametrize('member_list', [[
+        ('AWIOFJ','aowen', 'elder', 1523, 12, 1, 1, 1),
+        ('tag here','name here', 'co_leader', 235, 13, 4523645, 1, 0),
+        ('tag here', 'new name here', 'leader', 5007, 1, 4376583, 0, 1)
+        ]])
+@pytest.mark.skip(reason="implementing scanned data first")
+def test_add_members_to_db(test_db_session, fetched_data_processor, member_list):
+    expected_results = {}
+    for member in member_list:
+        tag, name, role, trophies, th_level, last_seen_in_war, in_clan, in_war = member
+        expected_results[tag] = member
+        fetched_data_processor.addMemberToDB(test_db_session, tag, name, role, trophies, th_level)
+
+    for tag in expected_results:
+        tag, name, role, trophies, th_level, last_seen_in_war, in_clan, in_war = member
+        db_results = test_db_session.query(MEMBER).filter_by(member_tag = tag).all()
+        assert len(db_results) == 1
+        member_results = db_results[0]
+        assert member_results.member_tag == tag
+        assert member_results.member_name == name
+        assert member_results.role == role
+        assert member_results.town_hall_level == trophies
+        assert member_results.in_clan_currently == in_clan
+        assert member_results.in_war_currently == in_war
+        assert member_results.last_seen_in_war == last_seen_in_war
