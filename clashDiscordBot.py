@@ -15,6 +15,7 @@ import config_strings
 import config_options
 from MyHelpFormatter import MyHelpFormatter, _default_help_command
 import clashConvertDataToString
+import json
 
 # make this come from config
 botChannelID = config_bot.testingChannelID
@@ -842,6 +843,17 @@ async def sendOutWarReminders():
 				await discordClient.send_message(warChannel, 'Hey {}, make sure to use{}! {}'.format(member.mention, accountNamesString, nextWarTimestampString))
 				await asyncio.sleep(1)
 
+async def createRules():
+	rulesChannel = discordClient.get_channel(config_bot.rulesChannelID)
+	async for x in discordClient.logs_from(rulesChannel, limit = 9):
+		await discordClient.delete_message(x)
+	with open('clanRules.json') as rulesFiles:
+		newRules = json.load(rulesFiles)
+		for x in newRules["Rules"]:
+			x['type'] = 'rich'
+			newEmbed = discord.Embed(**x)
+			await discordClient.send_message(rulesChannel, embed=newEmbed)
+
 async def startGatheringData():
 
 	print('startGatheringData starting')
@@ -868,6 +880,7 @@ async def startGatheringData():
 
 	discordClient.loop.create_task(sendOutGiftReminders())
 	discordClient.loop.create_task(sendOutWarReminders())
+	#discordClient.loop.create_task(createRules())
 
 	await discordClient.send_message(botChannel, "Coming online")
 
