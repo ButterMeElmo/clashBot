@@ -28,3 +28,5 @@ class DatabaseSetup:
 
             return session
 
+if __name__ == '__main__':
+        db_session = DatabaseSetup.get_session()

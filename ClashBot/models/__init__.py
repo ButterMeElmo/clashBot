@@ -5,8 +5,20 @@ __all__ = [
 
 from .meta import Base, metadata
 
+from .add_or_remove_from_war_roster import ADDORREMOVEFROMWARROSTER
+from .calculated_troops_spells_siege import CALCULATEDTROOPSSPELLSSIEGE
 from .clan import CLAN
+from .clan_game import CLANGAME
+from .clan_games_score import CLANGAMESSCORE
+from .discord_property import DISCORDPROPERTY
+from .discord_name import DISCORDNAME
+from .last_processed import LASTPROCESSED
 from .member import MEMBER
-
-# remove this after I break all the other models out :)
-from .models import *
+from .scanned_data import SCANNEDDATA
+from .scanned_data_time import SCANNEDDATATIME
+from .season_historical_data import SEASONHISTORICALDATA
+from .season import SEASON
+from .troop_donation import TROOPDONATION
+from .war import WAR
+from .war_attack import WARATTACK
+from .account_name import ACCOUNTNAME

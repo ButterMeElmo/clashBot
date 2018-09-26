@@ -1,5 +1,7 @@
 from .meta import *
 
+from ClashBot.models import DISCORDPROPERTY
+
 class DISCORDNAME(DISCORDPROPERTY):
     __tablename__ = 'DISCORD_NAMES'
     __table_args__ = (

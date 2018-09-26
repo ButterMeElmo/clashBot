@@ -1,5 +1,7 @@
 from .meta import *
 
+from ClashBot.models import WAR
+
 class WARATTACK(WAR):
     __tablename__ = 'WAR_ATTACKS'
     __table_args__ = (
