@@ -9,7 +9,7 @@ import unittest
 import pytz
 import datetime
 import dateutil
-#from .supercell_data_fetcher import SupercellDataFetcher
+from .supercell_data_fetcher import SupercellDataFetcher
 import os
 #from .database_accessor import DatabaseAccessor
 import math
@@ -67,8 +67,33 @@ class FetchedDataProcessor:
     def turnClanGamesStringIntoTimestamp(self, clangamesString):
         pass
 
-# high level "processing"
-    def processWar(self, war, cursor):
+# reading data into database
+    def save_data(self, session = None, previous_processed_time = 0, data_directory = "data"):
+        # this contains all the info about the player
+        self.process_player_achievement_files(session, previous_processed_time, data_directory)
+
+        # these contain clan wars from the past, and details on the current one (at the time of saving)
+        self.process_clan_war_log_overview_files(session, previous_processed_time, data_directory)
+        self.process_clan_war_details_files(session, previous_processed_time, data_directory)
+
+
+    def process_player_achievement_files(self, session, previous_processed_time, data_directory):
+        scdf = SupercellDataFetcher()
+        for clan_player_achievements_file in scdf.getFileNames(data_directory, 'clanPlayerAchievements', '.json', previous_processed_time):
+            entries = json.load(open(clan_player_achievements_file))
+            for clan_player_achievements_entry in entries:
+                self.process_clan_player_achievements(session, clan_player_achievements_entry)
+
+    def process_clan_war_log_overview_files(self, session, previous_processed_time, data_directory):
+        pass
+
+    def process_clan_war_details_files(self, session, previous_processed_time, data_directory):
+        pass
+
+    def process_clan_player_achievements(self, session, clan_player_achievements_entry):
+        pass
+
+    def processWar(self, session, war):
         pass
         def convertTime(timeStr):
             pass
@@ -76,14 +101,10 @@ class FetchedDataProcessor:
         pass
     def processClanGamesData(self, cursor, previousProcessedTime):
         pass
-    def save_data(self, session = None, previousProcessedTime = None):       
-        pass
     def processClanProfile(self, clanProfile, cursor):
         pass
 
 # having to manipulate data beyond simple converting from dict to class
-    def processClanPlayerAcievements(self, clanPlayerAcievementsEntry, cursor):
-        pass
     def getNextSeasonTimeStamp(self, timeBeingCalulatedFrom, extraMonth):
         pass
     def validateSeasons(self, cursor, previousProcessedTime):
