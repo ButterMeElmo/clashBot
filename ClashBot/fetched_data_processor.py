@@ -9,12 +9,11 @@ import unittest
 import pytz
 import datetime
 import dateutil
-from .supercell_data_fetcher import SupercellDataFetcher
 import os
 #from .database_accessor import DatabaseAccessor
 import math
 
-from ClashBot import DateFetcherFormatter
+from ClashBot import DateFetcherFormatter, SupercellDataFetcher
 from ClashBot.models import CLAN, MEMBER
 
 from ClashBot import DatabaseSetup
