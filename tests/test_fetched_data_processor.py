@@ -2,6 +2,9 @@ import pytest
 from ClashBot.models import CLAN, MEMBER
 from ClashBot import FetchedDataProcessor, DatabaseSetup
 import os
+from unittest import mock
+from fake_data import test_process_player_achievement_files_processes_file_data 
+import json
 
 @pytest.fixture
 def fetched_data_processor():
@@ -117,3 +120,32 @@ def test_add_members_to_db(test_db_session, fetched_data_processor, member_list)
         assert member_results.in_clan_currently == in_clan
         assert member_results.in_war_currently == in_war
         assert member_results.last_seen_in_war == last_seen_in_war
+
+def test_save_data_executes(test_db_session, fetched_data_processor):
+    with mock.patch('ClashBot.FetchedDataProcessor.process_player_achievement_files', autospec=True) as process_player_achievement_files, \
+            mock.patch('ClashBot.FetchedDataProcessor.process_clan_war_log_overview_files', autospec=True) as process_clan_war_files_overview, \
+            mock.patch('ClashBot.FetchedDataProcessor.process_clan_war_details_files', autospec=True) as process_clan_war_files_details:
+        fetched_data_processor.save_data(test_db_session, 657, "some_dir")
+        process_player_achievement_files.assert_called_once_with(fetched_data_processor, test_db_session, 657, "some_dir")
+        process_clan_war_files_details.assert_called_once_with(fetched_data_processor, test_db_session, 657, "some_dir")
+        process_clan_war_files_overview.assert_called_once_with(fetched_data_processor, test_db_session, 657, "some_dir")
+
+def test_process_player_achievement_files_throws(test_db_session, fetched_data_processor):
+    with mock.patch('ClashBot.FetchedDataProcessor.process_clan_player_achievements', autospec=True) as process_clan_player_achievements:
+        with pytest.raises(FileNotFoundError):
+            fetched_data_processor.process_player_achievement_files(test_db_session, 1234, "rand_dir")
+
+
+def test_process_player_achievement_files_processes_file(test_db_session, fetched_data_processor):
+    fake_data_from_file = test_process_player_achievement_files_processes_file_data
+    with mock.patch("builtins.open", mock.mock_open(read_data=json.dumps(fake_data_from_file))) as mock_file, \
+        mock.patch('ClashBot.FetchedDataProcessor.process_clan_player_achievements', autospec=True) as process_clan_player_achievements:
+            # this time here is used to check for files (1 per day since that time in epoch). 
+            # Usually if a file does not exist it is skipped, but since we are mocking the file reads,
+            # open() is ALWAYS successful so this has the potential to be slow if we use the default 0 
+            fetched_data_processor.process_player_achievement_files(test_db_session, 1537945719, "rand_dir")
+            expected_calls = []
+            for clan_player_achievements_entry in fake_data_from_file:
+                expected_calls.append(mock.call(fetched_data_processor, test_db_session, clan_player_achievements_entry))
+            process_clan_player_achievements.assert_has_calls(expected_calls)
+
