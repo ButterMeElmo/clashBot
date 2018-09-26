@@ -12,7 +12,7 @@ class SupercellDataFetcher:
     def getDataFromServer(self):
         call(["node", "discordBot.js", ">", "/dev/null"])
 
-    def getFileNames(self, startingFileName, extension, startingTimeStamp):
+    def getFileNames(self, directoryForData, startingFileName, extension, startingTimeStamp):
         date = datetime.datetime.utcfromtimestamp(startingTimeStamp)
         counter_aware_utc_dt = date.replace(tzinfo=pytz.utc)
 
@@ -21,21 +21,24 @@ class SupercellDataFetcher:
         endOfToday = self.date_fetcher_formatter.getUTCDateTime().replace(hour = 23, minute=59, second=59)
 
         while counter_aware_utc_dt <= endOfToday:
-            results.append(self.getFileName(startingFileName, extension, counter_aware_utc_dt))
+            results.append(self.getFileName(directoryForData, startingFileName, extension, counter_aware_utc_dt))
             counter_aware_utc_dt = counter_aware_utc_dt.replace(hour = 12)
             counter_aware_utc_dt = counter_aware_utc_dt + datetime.timedelta(days=1)
             counter_aware_utc_dt = counter_aware_utc_dt.replace(hour = 12)
 
         return results
 
-    def getFileName(self, startingFileName, extension, date = None):
+    def getFileName(self, directoryForData, startingFileName, extension, date = None):
+        directoryForData = str(directoryForData)
+        if len(directoryForData) > 0 and directoryForData[-1] != '/' and directoryForData[-1] != '\\':
+            directoryForData += "/"
         if date == None:
             date = self.date_fetcher_formatter.getUTCDateTime()
         year = date.year
         month = date.month
         day = date.day
         dateString = '_' + str(year) + '-' + str(month) + '-' + str(day)
-        result =  startingFileName + dateString + extension
+        result =  directoryForData + startingFileName + dateString + extension
         return result
 
     def validateData(self, directoryForData = 'data'):
@@ -45,16 +48,16 @@ class SupercellDataFetcher:
         datasets = []
 
         try:
-            with open(directoryForData + self.getFileName('/warDetailsLog', '.json'), "r") as file:
+            with open(self.getFileName(directoryForData, "warDetailsLog", ".json"), "r") as file:
                 warDetailsSnapshot = json.load(file)
                 datasets.append(warDetailsSnapshot)
-            with open(directoryForData + self.getFileName("/clanLog", ".json"), "r") as file:
+            with open(self.getFileName(directoryForData, "clanLog", ".json"), "r") as file:
                 clanProfileSnapshot = json.load(file)
                 datasets.append(clanProfileSnapshot)
-            with open(directoryForData + self.getFileName("/warLog", ".json"), "r") as file:
+            with open(self.getFileName(directoryForData, "warLog", ".json"), "r") as file:
                 warLogSnapshot = json.load(file)
                 datasets.append(warLogSnapshot)
-            with open(directoryForData + self.getFileName("/clanPlayerAchievements", ".json"), "r") as file:
+            with open(self.getFileName(directoryForData, "clanPlayerAchievements", ".json"), "r") as file:
                 playerAchievementsSnapshot = json.load(file)
                 datasets.append(playerAchievementsSnapshot)
         except FileNotFoundError as e:
