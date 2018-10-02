@@ -18,7 +18,6 @@ from .scanned_data import SCANNEDDATA
 from .scanned_data_time import SCANNEDDATATIME
 from .season_historical_data import SEASONHISTORICALDATA
 from .season import SEASON
-from .troop_donation import TROOPDONATION
 from .war import WAR
 from .war_attack import WARATTACK
 from .account_name import ACCOUNTNAME
