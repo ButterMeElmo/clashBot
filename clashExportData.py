@@ -17,12 +17,12 @@ cursor.execute(query)
 discordProperties = cursor.fetchall()
 discordPropertyList = []
 for discordPropertyPiece in discordProperties:
-	discordPropertyDict = {}
-	discordPropertyDict['discordID'] = discordPropertyPiece[0]
-	discordPropertyDict['isDonator'] = discordPropertyPiece[1]
-	discordPropertyDict['hasWarPerms'] = discordPropertyPiece[2]
-	discordPropertyDict['lastCheckedTime'] = discordPropertyPiece[3]
-	discordPropertyList.append(discordPropertyDict)
+    discordPropertyDict = {}
+    discordPropertyDict['discordID'] = discordPropertyPiece[0]
+    discordPropertyDict['isDonator'] = discordPropertyPiece[1]
+    discordPropertyDict['hasWarPerms'] = discordPropertyPiece[2]
+    discordPropertyDict['lastCheckedTime'] = discordPropertyPiece[3]
+    discordPropertyList.append(discordPropertyDict)
 
 
 query = '''
@@ -33,17 +33,17 @@ discordNames = cursor.fetchall()
 
 discordNameList = []
 for discordNamePiece in discordNames:
-	discordNameDict = {}
-	discordNameDict['discordID'] = discordNamePiece[0]
-	discordNameDict['member_tag'] = discordNamePiece[1]
-	discordNameDict['account_order'] = discordNamePiece[2]
-	discordNameList.append(discordNameDict)
+    discordNameDict = {}
+    discordNameDict['discordID'] = discordNamePiece[0]
+    discordNameDict['member_tag'] = discordNamePiece[1]
+    discordNameDict['account_order'] = discordNamePiece[2]
+    discordNameList.append(discordNameDict)
 
 resultingData['DISCORD_PROPERTIES'] = discordPropertyList
 resultingData['DISCORD_NAMES'] = discordNameList
 
 with open('manuallyInputtingDataConversion/discord_exported_data.json', 'w') as outfile:
-	json.dump(resultingData, outfile, indent=4)
+    json.dump(resultingData, outfile, indent=4)
 
 query = '''
 		SELECT member_tag, free_item_day_of_week, free_item_hour_to_remind, wants_gift_reminder, wants_war_reminder FROM MEMBERS
@@ -60,17 +60,15 @@ cursor.execute(query)
 membersList = []
 members = cursor.fetchall()
 for member in members:
-	memberDict = {}
-	memberDict['member_tag'] = member[0]
-	memberDict['free_item_day_of_week'] = member[1]
-	memberDict['free_item_hour_to_remind'] = member[2]
-	memberDict['wants_gift_reminder'] = member[3]
-	memberDict['wants_war_reminder'] = member[4]
-	membersList.append(memberDict)
-	
+    memberDict = {}
+    memberDict['member_tag'] = member[0]
+    memberDict['free_item_day_of_week'] = member[1]
+    memberDict['free_item_hour_to_remind'] = member[2]
+    memberDict['wants_gift_reminder'] = member[3]
+    memberDict['wants_war_reminder'] = member[4]
+    membersList.append(memberDict)
+
 with open('manuallyInputtingDataConversion/member_gift_data.json', 'w') as outfile:
-	json.dump(membersList, outfile, indent=4)
+    json.dump(membersList, outfile, indent=4)
 
 conn.close()
-
-
