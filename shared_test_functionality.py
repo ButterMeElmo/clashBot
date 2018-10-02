@@ -10,11 +10,12 @@ import clashSaveData
 from helper_for_testing import patch_datetime_now
 import json
 
+
 @pytest.fixture(scope='function')
 def db(tmpdir):
-	file = os.path.join(tmpdir.strpath, "test.db")
-	conn = sqlite3.connect(file)
-	creationString = """CREATE TABLE WARS (war_id INTEGER PRIMARY KEY, friendly_tag VARCHAR(20), enemy_tag VARCHAR(20), result VARCHAR(11), friendly_stars SMALLINT(3), enemy_stars SMALLINT(3), friendly_percentage DOUBLE(5,2), enemy_percentage DOUBLE(5,2), friendly_attacks_used SMALLINT(3), enemy_attacks_used SMALLINT(3), war_size SMALLINT(3), prep_day_start UNSIGNED INT(11), war_day_start UNSIGNED INT(11), war_day_end UNSIGNED INT(11), UNIQUE(friendly_tag, enemy_tag, prep_day_start) ON CONFLICT REPLACE);
+    file = os.path.join(tmpdir.strpath, "test.db")
+    conn = sqlite3.connect(file)
+    creationString = """CREATE TABLE WARS (war_id INTEGER PRIMARY KEY, friendly_tag VARCHAR(20), enemy_tag VARCHAR(20), result VARCHAR(11), friendly_stars SMALLINT(3), enemy_stars SMALLINT(3), friendly_percentage DOUBLE(5,2), enemy_percentage DOUBLE(5,2), friendly_attacks_used SMALLINT(3), enemy_attacks_used SMALLINT(3), war_size SMALLINT(3), prep_day_start UNSIGNED INT(11), war_day_start UNSIGNED INT(11), war_day_end UNSIGNED INT(11), UNIQUE(friendly_tag, enemy_tag, prep_day_start) ON CONFLICT REPLACE);
 
 			CREATE TABLE CLANS (clan_tag VARCHAR(20) UNIQUE, clan_name VARCHAR(50));
 
@@ -44,45 +45,46 @@ def db(tmpdir):
 
 			CREATE TABLE DISCORD_NAMES (discord_tag BIGINT(25), member_tag VARCHAR(20) NOT NULL, FOREIGN KEY(member_tag) REFERENCES MEMBERS(member_tag), FOREIGN KEY(discord_tag) REFERENCES DISCORD_PROPERTIES(discord_tag), UNIQUE(discord_tag, member_tag) ON CONFLICT REPLACE);
 			"""
-	conn.executescript(creationString)
-	conn.cursor().execute("PRAGMA foreign_keys = ON")
-	yield conn
-	conn.close()  
+    conn.executescript(creationString)
+    conn.cursor().execute("PRAGMA foreign_keys = ON")
+    yield conn
+    conn.close()
 
-#@pytest.mark.parametrize("start_of_data_processing_time, patch_datetime_now", [
+# @pytest.mark.parametrize("start_of_data_processing_time, patch_datetime_now", [
 #		(
 #			int(datetime.datetime(2018, 6, 2).timestamp()),
-#			datetime.datetime(2018, 6, 3), 
+#			datetime.datetime(2018, 6, 3),
 #		),
 #	], indirect=['patch_datetime_now'])
 
+
 start_of_data_processing_time = int(datetime.datetime(2018, 6, 2).timestamp())
+
+
 @pytest.fixture(scope='function')
 def db_filled_out(monkeypatch, db):
-	
-	NOW = datetime.datetime(2018, 6, 3)
-	class mydatetime:
-		@classmethod
-		def utcfromtimestamp(cls, param):
-			return cls.utcfromtimestamp(param)
-		def utcnow():
-			return NOW
-	monkeypatch.setattr(datetime, 'datetime', mydatetime)	
 
+    NOW = datetime.datetime(2018, 6, 3)
 
+    class mydatetime:
+        @classmethod
+        def utcfromtimestamp(cls, param):
+            return cls.utcfromtimestamp(param)
 
-	cursor = db.cursor()
+        def utcnow():
+            return NOW
+    monkeypatch.setattr(datetime, 'datetime', mydatetime)
 
-	clashSaveData.saveData(cursor, start_of_data_processing_time)
+    cursor = db.cursor()
+
+    clashSaveData.saveData(cursor, start_of_data_processing_time)
 #	assert True
-	yield db
+    yield db
+
 
 def test_new_db(db_filled_out):
-	cursor = db_filled_out.cursor()
-	cursor.execute('SELECT * FROM WARS')
-	results = cursor.fetchall()
+    cursor = db_filled_out.cursor()
+    cursor.execute('SELECT * FROM WARS')
+    results = cursor.fetchall()
 
-	assert len(results) == 2
-
-
-
+    assert len(results) == 2

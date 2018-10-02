@@ -1,8 +1,10 @@
 import asyncio
 import discord
 
+
 class CannotPaginate(Exception):
     pass
+
 
 class Pages:
     """Implements a paginator that queries the user for the
@@ -11,6 +13,7 @@ class Pages:
     If the user does not reply within 2 minutes, the pagination
     interface exits automatically.
     """
+
     def __init__(self, bot, *, message, entries, per_page=10):
         self.bot = bot
         self.entries = entries
@@ -24,11 +27,13 @@ class Pages:
         self.embed = discord.Embed()
         self.paginating = len(entries) > per_page
         self.reaction_emojis = [
-            ('\N{BLACK LEFT-POINTING DOUBLE TRIANGLE WITH VERTICAL BAR}', self.first_page),
+            ('\N{BLACK LEFT-POINTING DOUBLE TRIANGLE WITH VERTICAL BAR}',
+             self.first_page),
             ('\N{BLACK LEFT-POINTING TRIANGLE}', self.previous_page),
             ('\N{BLACK RIGHT-POINTING TRIANGLE}', self.next_page),
-            ('\N{BLACK RIGHT-POINTING DOUBLE TRIANGLE WITH VERTICAL BAR}', self.last_page),
-            ('\N{INPUT SYMBOL FOR NUMBERS}', self.numbered_page ),
+            ('\N{BLACK RIGHT-POINTING DOUBLE TRIANGLE WITH VERTICAL BAR}',
+             self.last_page),
+            ('\N{INPUT SYMBOL FOR NUMBERS}', self.numbered_page),
             ('\N{BLACK SQUARE FOR STOP}', self.stop_pages),
             ('\N{INFORMATION SOURCE}', self.show_help),
         ]
@@ -37,7 +42,8 @@ class Pages:
         if server is not None:
             self.permissions = self.message.channel.permissions_for(server.me)
         else:
-            self.permissions = self.message.channel.permissions_for(self.bot.user)
+            self.permissions = self.message.channel.permissions_for(
+                self.bot.user)
 
         if not self.permissions.embed_links:
             raise CannotPaginate('Bot does not have embed links permission.')
@@ -53,7 +59,8 @@ class Pages:
         for t in enumerate(entries, 1 + ((page - 1) * self.per_page)):
             p.append('%s. %s' % t)
 
-        self.embed.set_footer(text='Page %s/%s (%s entries)' % (page, self.maximum_pages, len(self.entries)))
+        self.embed.set_footer(text='Page %s/%s (%s entries)' %
+                              (page, self.maximum_pages, len(self.entries)))
 
         if not self.paginating:
             self.embed.description = '\n'.join(p)
@@ -69,7 +76,8 @@ class Pages:
             raise CannotPaginate('Bot does not have add reactions permission.')
 
         if not self.permissions.read_message_history:
-            raise CannotPaginate('Bot does not have Read Message History permission.')
+            raise CannotPaginate(
+                'Bot does not have Read Message History permission.')
 
         p.append('')
         p.append('Confused? React with \N{INFORMATION SOURCE} for more info.')
@@ -138,15 +146,16 @@ class Pages:
         """shows this message"""
         e = discord.Embed()
         messages = ['Welcome to the interactive paginator!\n']
-        messages.append('This interactively allows you to see pages of text by navigating with ' \
+        messages.append('This interactively allows you to see pages of text by navigating with '
                         'reactions. They are as follows:\n')
 
         for (emoji, func) in self.reaction_emojis:
             messages.append('%s %s' % (emoji, func.__doc__))
 
         e.description = '\n'.join(messages)
-        e.colour =  0x738bd7 # blurple
-        e.set_footer(text='We were on page %s before this message.' % self.current_page)
+        e.colour = 0x738bd7  # blurple
+        e.set_footer(text='We were on page %s before this message.' %
+                     self.current_page)
         await self.bot.edit_message(self.message, embed=e)
 
         async def go_back_to_current_page():
@@ -188,7 +197,7 @@ class Pages:
             try:
                 await self.bot.remove_reaction(self.message, react.reaction.emoji, react.user)
             except:
-                pass # can't remove it so don't bother doing so
+                pass  # can't remove it so don't bother doing so
 
             await self.match()
 
@@ -196,7 +205,8 @@ class Pages:
 def get_all_commands(bot):
     """Returns a list of all command names for the bot"""
     # First lets create a set of all the parent names
-    parent_command_names = set(cmd.qualified_name for cmd in bot.commands.values())
+    parent_command_names = set(
+        cmd.qualified_name for cmd in bot.commands.values())
     all_commands = []
 
     # Now lets loop through and get all the child commands for each command
@@ -207,6 +217,7 @@ def get_all_commands(bot):
             all_commands.append(child_cmd)
 
     return all_commands
+
 
 def get_subcommands(command):
     yield command.qualified_name
