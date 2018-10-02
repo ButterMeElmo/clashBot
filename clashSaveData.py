@@ -1227,6 +1227,27 @@ def processSeasonData(cursor, previousProcessedTime):
 			second_command_vars = (season_id, member_tag, total_troops_donated, total_troops_received, total_spells_donated, attacks_won, defenses_won)
 			cursor.execute(query, second_command_vars)
 
+def importClanGamesDetails(cursor):
+	clanGames = json.load(open('manuallyInputtingDataConversion/1_clanGamesMain.json'))
+	for clanGame in clanGames:
+		startTime = turnClanGamesStringIntoTimestamp(clanGame['startTime'])
+		stopTime = turnClanGamesStringIntoTimestamp(clanGame['stopTime'])
+		personalCap = clanGame['personalCap']
+		topTierScore = clanGame['topTierScore']
+		minTownHall = 6 #this has been the case for every one so far
+		if 'minTownHall' in clanGame:
+			minTownHall = clanGame['minTownHall']
+			
+		query = """
+			INSERT OR REPLACE INTO
+				CLAN_GAMES (clan_games_ID, start_time, end_time, top_tier_score, personal_limit, min_town_hall)
+			VALUES
+				(
+				COALESCE((SELECT clan_games_ID FROM clan_games WHERE start_time = ? and end_time = ?), NULL)
+				, ?, ?, ?, ?, ?);
+		"""
+		cursor.execute(query, (startTime, stopTime, startTime, stopTime, topTierScore, personalCap, minTownHall))
+
 def processClanGamesData(cursor, previousProcessedTime):
 	query = '''
 		SELECT * FROM clan_games;
@@ -1466,6 +1487,9 @@ def saveData(cursor = None, previousProcessedTime = None):
 		# starting at october 1 2017, random time
 		print('populating all seasons')
 		populateSeasons(cursor, 1506884421)
+
+		print('importing clan games start and end times')
+		importClanGamesDetails(cursor)
 
 		warFileNames = getDataFromServer.getFileNames('data/warDetailsLog', '.json', previousProcessedTime)
 		for filename in warFileNames:
