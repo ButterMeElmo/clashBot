@@ -4,7 +4,6 @@
 
 
 const clashApi = require("clash-of-clans-api");
-const Discord = require("discord.js");
 var request = require("request");
 var fs = require("fs");
 var XMLHttpRequest = require("xmlhttprequest").XMLHttpRequest;
@@ -12,8 +11,6 @@ var XMLHttpRequest = require("xmlhttprequest").XMLHttpRequest;
 // Loading my Configs
 var config = require("./config_bot.json");
 // fs.writeFileSync( __dirname + '/config_bot.json' , JSON.stringify(config));
-
-const clientBot = new Discord.Client();
 
 // choose which token here
 let clashClient = clashApi({
