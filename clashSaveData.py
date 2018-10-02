@@ -658,64 +658,14 @@ def turnClanGamesStringIntoTimestamp(clangamesString):
 	#print('outputting {}'.format(clanGamesTimestamp))
 	return clanGamesTimestamp	
 
-def useOldClanGamesData(cursor):
-	clanGames = json.load(open('manuallyInputtingDataConversion/1_clanGamesMain.json'))
-	for clanGame in clanGames:
-		startTime = turnClanGamesStringIntoTimestamp(clanGame['startTime'])
-		stopTime = turnClanGamesStringIntoTimestamp(clanGame['stopTime'])
-		personalCap = clanGame['personalCap']
-		topTierScore = clanGame['topTierScore']
-		minTownHall = 6 #this has been the case for every one so far
-		if 'minTownHall' in clanGame:
-			minTownHall = clanGame['minTownHall']
-			
-		query = """
-			INSERT OR REPLACE INTO
-				CLAN_GAMES (clan_games_ID, start_time, end_time, top_tier_score, personal_limit, min_town_hall)
-			VALUES
-				(
-				COALESCE((SELECT clan_games_ID FROM clan_games WHERE start_time = ? and end_time = ?), NULL)
-				, ?, ?, ?, ?, ?);
-		"""
-		cursor.execute(query, (startTime, stopTime, startTime, stopTime, topTierScore, personalCap, minTownHall))
-
-
-def useOldClanProfile(cursor):
-	clanProfiles = json.load(open('manuallyInputtingDataConversion/3_season1ClanProfile.json'))
-	for clanProfile in clanProfiles:
-		clanTag = clanProfile['clan_tag']
-		timestamp = clanProfile['timestamp']
-		seasonID = getSeasonIDForUTCTimestamp(cursor, timestamp)
-		members = clanProfile['members']
-		for member in members:
-			memberTag = member['tag']
-			donated = member['donated']
-			received = member['received']
-			memberName = member['name']
-			addMemberToDB(cursor, memberTag, memberName, "unknown", None, None)
-			addDonationsToDB(cursor, clanTag, memberTag, donated, received, seasonID)
-
-	clanGamesData = json.load(open('manuallyInputtingDataConversion/2_IndividualScoresClanGames.json'))
-	for clanGamesDataSingular in clanGamesData:
-		entries = clanGamesDataSingular['entries']
-		for entry in entries:
-			print(entry)
-			memberTag = entry['tag']
-			clanGamesID = entry['clanGamesID']
-			score = entry['memberScore']
-			memberName = entry['name']
-			addMemberToDB(cursor, memberTag, memberName, "unknown", None, None)
-			query = """
-				INSERT OR REPLACE INTO
-					CLAN_GAMES_SCORE (member_tag, clan_games_ID, score)
-				VALUES
-					(?, ?, ?);
-			"""
-			cursor.execute(query, (memberTag, clanGamesID, score))
-
-
 def useLinkedAccountsStartingPoint(cursor):
-	data = json.load(open('manuallyInputtingDataConversion/discord_exported_data.json'))
+
+	filename = 'manuallyInputtingDataConversion/discord_exported_data.json'
+	if not os.path.exists(filename):
+		print('No discord data to load')
+		return
+
+	data = json.load(open(filename))
 	discordProperties = data['DISCORD_PROPERTIES']
 	discordNames = data['DISCORD_NAMES']
 
@@ -747,7 +697,11 @@ def useLinkedAccountsStartingPoint(cursor):
 		cursor.execute(query, (discordTag, clashTag, account_order))
 		
 def importSavedFreeGiftDays(cursor):
-	data = json.load(open('manuallyInputtingDataConversion/member_gift_data.json'))
+	filename = 'manuallyInputtingDataConversion/member_gift_data.json'
+	if not os.path.exists(filename):
+		print('No gift data to load')
+		return
+	data = json.load(open(filename))
 	for memberGiftDataEntry in data:
 		query = """
 			UPDATE MEMBERS
@@ -1512,13 +1466,6 @@ def saveData(cursor = None, previousProcessedTime = None):
 		# starting at october 1 2017, random time
 		print('populating all seasons')
 		populateSeasons(cursor, 1506884421)
-
-		print('importing clan games start and end times')
-		useOldClanGamesData(cursor)
-
-		if previousProcessedTime == 0:
-			print('importing manually inputted data')
-			useOldClanProfile(cursor)
 
 		warFileNames = getDataFromServer.getFileNames('data/warDetailsLog', '.json', previousProcessedTime)
 		for filename in warFileNames:
