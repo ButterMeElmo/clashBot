@@ -5,7 +5,7 @@ import datetime
 import pytz
 
 def getDataFromServer():
-	call(["node", "discordBot.js", ">", "/dev/null"])
+	call(["node", "myCocAPI.js", ">", "/dev/null"])
 
 def getUTCDateTime():
 	date = datetime.datetime.utcnow()

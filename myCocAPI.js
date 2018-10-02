@@ -14,7 +14,7 @@ var config = require("./config_bot.json");
 
 // choose which token here
 let clashClient = clashApi({
-	token:config.token_to_use
+	token:config.supercell_token_to_use
   });
 
 
