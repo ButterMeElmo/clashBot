@@ -93,3 +93,8 @@ test_process_player_achievement_files_processes_file_data = [
         'timestamp': 1536649000001 
     }
 ]
+
+test_process_clan_war_details_files_processes_file_data = [
+    {},
+    {}
+]

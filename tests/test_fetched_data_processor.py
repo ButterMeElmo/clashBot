@@ -3,7 +3,7 @@ from ClashBot.models import CLAN, MEMBER
 from ClashBot import FetchedDataProcessor, DatabaseSetup
 import os
 from unittest import mock
-from fake_data import test_process_player_achievement_files_processes_file_data 
+import fake_data
 import json
 
 @pytest.fixture
@@ -131,21 +131,35 @@ def test_save_data_executes(test_db_session, fetched_data_processor):
         process_clan_war_files_overview.assert_called_once_with(fetched_data_processor, test_db_session, 657, "some_dir")
 
 def test_process_player_achievement_files_throws(test_db_session, fetched_data_processor):
-    with mock.patch('ClashBot.FetchedDataProcessor.process_clan_player_achievements', autospec=True) as process_clan_player_achievements:
-        with pytest.raises(FileNotFoundError):
-            fetched_data_processor.process_player_achievement_files(test_db_session, 1234, "rand_dir")
-
+    with pytest.raises(FileNotFoundError):
+        fetched_data_processor.process_player_achievement_files(test_db_session, 1234, "rand_dir")
 
 def test_process_player_achievement_files_processes_file(test_db_session, fetched_data_processor):
-    fake_data_from_file = test_process_player_achievement_files_processes_file_data
+    fake_data_from_file = fake_data.test_process_player_achievement_files_processes_file_data
     with mock.patch("builtins.open", mock.mock_open(read_data=json.dumps(fake_data_from_file))) as mock_file, \
-        mock.patch('ClashBot.FetchedDataProcessor.process_clan_player_achievements', autospec=True) as process_clan_player_achievements:
-            # this time here is used to check for files (1 per day since that time in epoch). 
+        mock.patch('ClashBot.FetchedDataProcessor.process_player_achievements', autospec=True) as process_player_achievements:
+            # this time here is used to check for files (1 per day since that time in epoch).
             # Usually if a file does not exist it is skipped, but since we are mocking the file reads,
-            # open() is ALWAYS successful so this has the potential to be slow if we use the default 0 
+            # open() is ALWAYS successful so this has the potential to be slow if we use the default 0
             fetched_data_processor.process_player_achievement_files(test_db_session, 1537945719, "rand_dir")
             expected_calls = []
-            for clan_player_achievements_entry in fake_data_from_file:
-                expected_calls.append(mock.call(fetched_data_processor, test_db_session, clan_player_achievements_entry))
-            process_clan_player_achievements.assert_has_calls(expected_calls)
+            for player_achievements_entry in fake_data_from_file:
+                expected_calls.append(mock.call(fetched_data_processor, test_db_session, player_achievements_entry))
+            process_player_achievements.assert_has_calls(expected_calls)
 
+def test_process_clan_war_details_files_throws(test_db_session, fetched_data_processor):
+    with pytest.raises(FileNotFoundError):
+        fetched_data_processor.process_clan_war_details_files(test_db_session, 1234, "rand_dir")
+
+def test_process_clan_war_details_files_processes_file(test_db_session, fetched_data_processor):
+    fake_data_from_file = fake_data.test_process_clan_war_details_files_processes_file_data
+    with mock.patch("builtins.open", mock.mock_open(read_data=json.dumps(fake_data_from_file))) as mock_file, \
+            mock.patch('ClashBot.FetchedDataProcessor.process_clan_war_details', autospec=True) as process_clan_war_details:
+            # this time here is used to check for files (1 per day since that time in epoch).
+            # Usually if a file does not exist it is skipped, but since we are mocking the file reads,
+            # open() is ALWAYS successful so this has the potential to be slow if we use the default 0
+            fetched_data_processor.process_clan_war_details_files(test_db_session, 1537945719, "rand_dir")
+            expected_calls = []
+            for clan_war_entry in fake_data_from_file:
+                expected_calls.append(mock.call(fetched_data_processor, test_db_session, clan_war_entry))
+            process_clan_war_details.assert_has_calls(expected_calls)

@@ -23,10 +23,6 @@ class FetchedDataProcessor:
     date_fetcher_formatter = DateFetcherFormatter()
 
 # imports
-    def useOldClanGamesData(self, cursor):
-        pass
-    def useOldClanProfile(self, cursor):
-        pass
     def useLinkedAccountsStartingPoint(self, cursor):
         pass
     def importSavedFreeGiftDays(self, cursor):
@@ -78,24 +74,29 @@ class FetchedDataProcessor:
 
     def process_player_achievement_files(self, session, previous_processed_time, data_directory):
         scdf = SupercellDataFetcher()
-        for clan_player_achievements_file in scdf.getFileNames(data_directory, 'clanPlayerAchievements', '.json', previous_processed_time):
-            entries = json.load(open(clan_player_achievements_file))
-            for clan_player_achievements_entry in entries:
-                self.process_clan_player_achievements(session, clan_player_achievements_entry)
+        for player_achievements_file in scdf.getFileNames(data_directory, 'clanPlayerAchievements', '.json', previous_processed_time):
+            entries = json.load(open(player_achievements_file))
+            for player_achievements_entry in entries:
+                self.process_player_achievements(session, player_achievements_entry)
 
     def process_clan_war_log_overview_files(self, session, previous_processed_time, data_directory):
         pass
 
     def process_clan_war_details_files(self, session, previous_processed_time, data_directory):
+        scdf = SupercellDataFetcher()
+        for clan_war_details_file in scdf.getFileNames(data_directory, 'warDetailsLog', '.json', previous_processed_time):
+            entries = json.load(open(clan_war_details_file))
+            for clan_war_details_entry in entries:
+                self.process_clan_war_details(session, clan_war_details_entry)
+
+    def process_player_achievements(self, session, clan_player_achievements_entry):
         pass
 
-    def process_clan_player_achievements(self, session, clan_player_achievements_entry):
-        pass
-
-    def processWar(self, session, war):
+    def process_clan_war_details(self, session, war):
         pass
         def convertTime(timeStr):
             pass
+
     def processSeasonData(self, cursor, previousProcessedTime):
         pass
     def processClanGamesData(self, cursor, previousProcessedTime):
