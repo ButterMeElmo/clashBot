@@ -26,7 +26,7 @@ def test_db_session(tmpdir):
     ('tag here','name here')
     ])
 def test_add_clan_to_db_unique(test_db_session, fetched_data_processor, clan_tag, clan_name):
-    fetched_data_processor.addClanToDB(test_db_session, clan_tag, clan_name)
+    fetched_data_processor.add_clan_to_db(test_db_session, clan_tag, clan_name)
     db_results = test_db_session.query(CLAN).all()
     number_of_clans = len(db_results)
     assert number_of_clans == 1
@@ -38,7 +38,7 @@ def test_add_clan_to_db_unique(test_db_session, fetched_data_processor, clan_tag
 def test_add_clans_to_db_unique(test_db_session, fetched_data_processor, clan_list):
     for clan in clan_list:
         clan_tag, clan_name = clan
-        fetched_data_processor.addClanToDB(test_db_session, clan_tag, clan_name)
+        fetched_data_processor.add_clan_to_db(test_db_session, clan_tag, clan_name)
     db_results = test_db_session.query(CLAN).all()
     number_of_clans = len(db_results)
     assert number_of_clans == len(clan_list)
@@ -53,7 +53,7 @@ def test_add_clans_to_db_duplicates(test_db_session, fetched_data_processor, cla
     for clan in clan_list:
         clan_tag, clan_name = clan
         result_dict[clan_tag] = clan_name
-        fetched_data_processor.addClanToDB(test_db_session, clan_tag, clan_name)
+        fetched_data_processor.add_clan_to_db(test_db_session, clan_tag, clan_name)
 
     # get the results from the db
     db_results = test_db_session.query(CLAN).all()
@@ -80,7 +80,7 @@ def test_add_members_to_db_defaults(test_db_session, fetched_data_processor, mem
     for member in member_list:
         tag, name, role, trophies, th_level = member
         expected_results[tag] = member
-        fetched_data_processor.addMemberToDB(test_db_session, tag, name, role, trophies, th_level)
+        fetched_data_processor.add_member_to_db(test_db_session, tag, name, role, trophies, th_level)
 
     for tag in expected_results:
         tag, name, role, trophies, th_level = member
@@ -106,7 +106,7 @@ def test_add_members_to_db(test_db_session, fetched_data_processor, member_list)
     for member in member_list:
         tag, name, role, trophies, th_level, last_seen_in_war, in_clan, in_war = member
         expected_results[tag] = member
-        fetched_data_processor.addMemberToDB(test_db_session, tag, name, role, trophies, th_level)
+        fetched_data_processor.add_member_to_db(test_db_session, tag, name, role, trophies, th_level)
 
     for tag in expected_results:
         tag, name, role, trophies, th_level, last_seen_in_war, in_clan, in_war = member
@@ -174,7 +174,7 @@ def test_process_player_achievements(test_db_session, fetched_data_processor):
     """
     # need to add data here
     fake_achievements_entry = []
-    with mock.patch('ClashBot.FetchedDataProcessor.add_scanned_data_time_to_db', autospec=True) as add_scanned_data_time_to_DB, \
+    with mock.patch('ClashBot.FetchedDataProcessor.add_scanned_data_time_to_db', autospec=True) as add_scanned_data_time_to_db, \
         mock.patch('ClashBot.FetchedDataProcessor.add_scanned_data_to_db', autospec=True) as add_scanned_data_to_db, \
         mock.patch('ClashBot.FetchedDataProcessor.add_clan_to_db', autospec=True) as add_clan_to_db, \
         mock.patch('ClashBot.FetchedDataProcessor.add_account_name_to_db', autospec=True) as add_account_name_to_db, \

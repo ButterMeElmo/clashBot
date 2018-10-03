@@ -29,7 +29,7 @@ class FetchedDataProcessor:
         pass
 
 # inserts
-    def addClanToDB(self, session, clan_tag, clan_name):
+    def add_clan_to_db(self, session, clan_tag, clan_name):
         clan = session.query(CLAN).filter_by(clan_tag=clan_tag).first()
         if clan:
             clan.clan_name = clan_name
@@ -37,29 +37,21 @@ class FetchedDataProcessor:
             clan_to_add = CLAN(clan_tag = clan_tag, clan_name = clan_name)
             session.add(clan_to_add)
 
-    def addMemberToDB(self, session, member_tag, member_name, member_role, trophy_count, town_hall_level, data_time, last_seen_in_war = 0, in_clan_currently = 1, in_war_currently = 0):
+    def add_member_to_db(self, session, member_tag, member_name, member_role, trophy_count, town_hall_level, data_time, last_seen_in_war = 0, in_clan_currently = 1, in_war_currently = 0):
         member = session.query(MEMBER)
         if member:
             pass
             # what to do if member exists already?
         else:
             pass
-            
-    def addDonationsToDB(self, cursor, clanTag, memberTag, donated, received, seasonID):
+
+    def add_scanned_data_to_db(self, session):
         pass
-    def addWarAttackToDB(cursor, warAttackDict):
+
+    def add_scanned_data_time_to_db(self, session):
         pass
-    def addWarToDB(self, cursor, friendlyTag, opponentTag, status, friendlyStars, opponentStars, friendlyDestructionPercentage, opponentDestructionPercentage, friendlyAttacks, opponentAttacks, warSize, prepStartTime, warStartTime, warEndTime):
-        pass
-    def addAccountName(self, cursor, playerTag, playerName):
-        pass
-    def addScannedDataToDB(self, cursor, data, scanned_data_index):
-        pass
-    def addMemberFromAchievements(self, entry, cursor, timestamp):
-        pass
-    def add_scanned_data_time(self, cursor, timestamp):
-        pass
-    def turnClanGamesStringIntoTimestamp(self, clangamesString):
+
+    def add_account_name_to_db(self, session):
         pass
 
 # reading data into database
