@@ -1,9 +1,19 @@
+Prereqs:
+
+-nodejs
+-python3
+-pip
+
 Installation:
 
 Currently there is some javascript used to get data from the Clash of Clans API. This requires 2 dependencies:
 
 npm install --save xmlhttprequest
 npm install --save clash-of-clans-api
+
+Install the python dependencies:
+
+pip install -r requirements.txt
 
 Copy the empty db to be populated shortly:
 
@@ -18,7 +28,7 @@ Fill in both data files with the necessary information.
 
 In config_bot.json, the token comes from the supercell developer center api.
 
-Everything in config_bot.py is from discord.
+Everything in config_bot.py is from discord. Follow directions for creating a discord bot, you will need the token, app id, and channel ids.
 
 On your initial setup, you need to have two sets of data.
 
@@ -34,4 +44,8 @@ python3 clashSaveData.py
 
 In the future, you can just run each command once and it will work as expected :)
 
-Also, if you run python3 clashDiscordBot the bot will join your server, where you can interact with it.
+If you have filled out your config_bot.py, you can do:
+
+python3 clashDiscordBot.py
+
+And the discord bot will join and work on your server. Type !help in one of your channels to see what it can do!
