@@ -888,10 +888,12 @@ async def sendOutWarReminders():
 
 async def createRules():
     rulesChannel = discordClient.get_channel(config_bot.rulesChannelID)
-    async for x in discordClient.logs_from(rulesChannel, limit=9):
-        await discordClient.delete_message(x)
     with open('clanRules.json') as rulesFiles:
         newRules = json.load(rulesFiles)
+        # Most of the time, we will be modifying wording, so we want to delete and re-enter the same number of rules.
+        # We can always manually delete 1 or 2 extra manually if we delete rule categories.
+        async for x in discordClient.logs_from(rulesChannel, limit=len(newRules["Rules"])):
+            await discordClient.delete_message(x)
         for x in newRules["Rules"]:
             x['type'] = 'rich'
             newEmbed = discord.Embed(**x)
