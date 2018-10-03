@@ -67,8 +67,7 @@ class FetchedDataProcessor:
         # this contains all the info about the player
         self.process_player_achievement_files(session, previous_processed_time, data_directory)
 
-        # these contain clan wars from the past, and details on the current one (at the time of saving)
-        self.process_clan_war_log_overview_files(session, previous_processed_time, data_directory)
+        # this contains details on the current war (at the time of saving)
         self.process_clan_war_details_files(session, previous_processed_time, data_directory)
 
 
@@ -79,9 +78,6 @@ class FetchedDataProcessor:
             for player_achievements_entry in entries:
                 self.process_player_achievements(session, player_achievements_entry)
 
-    def process_clan_war_log_overview_files(self, session, previous_processed_time, data_directory):
-        pass
-
     def process_clan_war_details_files(self, session, previous_processed_time, data_directory):
         scdf = SupercellDataFetcher()
         for clan_war_details_file in scdf.getFileNames(data_directory, 'warDetailsLog', '.json', previous_processed_time):
@@ -90,6 +86,21 @@ class FetchedDataProcessor:
                 self.process_clan_war_details(session, clan_war_details_entry)
 
     def process_player_achievements(self, session, clan_player_achievements_entry):
+        """
+        This method takes in a list of members and their details at a particular timestamp.
+        """
+        # add the scanned data timestamp
+        
+        # iterate through each player
+
+        # update clan table
+
+        # update members table
+        
+        # update account names table
+        
+        # add the scanned data to scanned data table
+
         pass
 
     def process_clan_war_details(self, session, war):

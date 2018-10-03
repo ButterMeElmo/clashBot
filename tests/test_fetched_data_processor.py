@@ -123,12 +123,10 @@ def test_add_members_to_db(test_db_session, fetched_data_processor, member_list)
 
 def test_save_data_executes(test_db_session, fetched_data_processor):
     with mock.patch('ClashBot.FetchedDataProcessor.process_player_achievement_files', autospec=True) as process_player_achievement_files, \
-            mock.patch('ClashBot.FetchedDataProcessor.process_clan_war_log_overview_files', autospec=True) as process_clan_war_files_overview, \
             mock.patch('ClashBot.FetchedDataProcessor.process_clan_war_details_files', autospec=True) as process_clan_war_files_details:
         fetched_data_processor.save_data(test_db_session, 657, "some_dir")
         process_player_achievement_files.assert_called_once_with(fetched_data_processor, test_db_session, 657, "some_dir")
         process_clan_war_files_details.assert_called_once_with(fetched_data_processor, test_db_session, 657, "some_dir")
-        process_clan_war_files_overview.assert_called_once_with(fetched_data_processor, test_db_session, 657, "some_dir")
 
 def test_process_player_achievement_files_throws(test_db_session, fetched_data_processor):
     with pytest.raises(FileNotFoundError):
@@ -163,3 +161,38 @@ def test_process_clan_war_details_files_processes_file(test_db_session, fetched_
             for clan_war_entry in fake_data_from_file:
                 expected_calls.append(mock.call(fetched_data_processor, test_db_session, clan_war_entry))
             process_clan_war_details.assert_has_calls(expected_calls)
+
+@pytest.mark.skip(reason="Still implementing")
+def test_process_player_achievements(test_db_session, fetched_data_processor):
+    """
+    When process_player_achievements is called, these should be called:
+    1 x add_scanned_data_time
+    num_players x add_scanned_data
+    num_players x add_clan
+    num_players x add_account_name
+    num_players x add_member
+    """
+    # need to add data here
+    fake_achievements_entry = []
+    with mock.patch('ClashBot.FetchedDataProcessor.add_scanned_data_time_to_db', autospec=True) as add_scanned_data_time_to_DB, \
+        mock.patch('ClashBot.FetchedDataProcessor.add_scanned_data_to_db', autospec=True) as add_scanned_data_to_db, \
+        mock.patch('ClashBot.FetchedDataProcessor.add_clan_to_db', autospec=True) as add_clan_to_db, \
+        mock.patch('ClashBot.FetchedDataProcessor.add_account_name_to_db', autospec=True) as add_account_name_to_db, \
+        mock.patch('ClashBot.FetchedDataProcessor.add_member_to_db', autospec=True) as add_member_to_db:
+            fetched_data_processor.process_player_achievements(fake_achievements_entry)
+            add_scanned_data_time_to_DB.assert_called_once_with()
+            expected_calls_add_scanned_data_to_db = []
+            expected_calls_add_clan_to_db = []
+            expected_calls_add_account_name_to_db = []
+            expected_calls_add_member_to_db = []
+            for member_achievements_entry in fake_achievements_entry:
+                # need to add data here
+                expected_calls_add_scanned_data_to_db.append()
+                expected_calls_add_clan_to_db.append()
+                expected_calls_add_account_name_to_db.append()
+                expected_calls_add_member_to_db.append()
+            add_scanned_data_time_to_DB.assert_called_once_with()
+            add_scanned_data_to_db.assert_has_calls(expected_calls_add_scanned_data_to_db)
+            add_clan_to_db.assert_has_calls(expected_calls_add_clan_to_db)
+            add_account_name_to_db.assert_has_calls(expected_calls_add_account_name_to_db)
+            add_member_to_db.assert_has_calls(expected_calls_add_member_to_db)
