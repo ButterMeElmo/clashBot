@@ -502,10 +502,17 @@ def get_past_war_performance_for_member_tags(member_tag_name_dict, number_of_war
     result_dict = {}
     result_dict['wars_participated_in'] = []
     query = """
-		SELECT MAX(war_id) FROM WARS
-		"""
+	    SELECT 
+                war_id, result
+            FROM
+                wars
+            WHERE
+                war_id = (SELECT MAX(war_id) FROM WARS)
+	    """
     cursor.execute(query, ())
-    max_war_id = cursor.fetchall()[0][0]
+    max_war_id, result = cursor.fetchall()[0]
+    if result == 'in progress':
+        max_war_id = max(0, max_war_id - 1)
 
     where_clause = ''
     for account_tag in member_tag_name_dict:
@@ -514,7 +521,7 @@ def get_past_war_performance_for_member_tags(member_tag_name_dict, number_of_war
     where_clause = "(" + where_clause + ")"
     found = 0
     for war_id in range(max_war_id, 1, -1):
-        print('looping')
+        #print('looping')
         query = '''SELECT war_id, attacker_tag, MEMBERS.member_name, attacker_attack_number, attacker_position, defender_position, attacker_town_hall, defender_town_hall, stars, destruction_percentage, attack_occurred_after, attack_occurred_before 
 			FROM WAR_ATTACKS 
 			INNER JOIN MEMBERS ON WAR_ATTACKS.attacker_tag = MEMBERS.member_tag
@@ -1478,8 +1485,101 @@ def getMembersInWarWithAttacksRemaining():
     conn.close()
     return prettyResults
 
+def getMembersWithPoorWarPerformance():
+    cursor, conn = getCursorAndConnection()
+    query = '''
+            SELECT 
+                member_tag, member_name 
+            FROM
+                members
+            WHERE
+                in_clan_currently = 1
+            '''
+    cursor.execute(query)
+    results = cursor.fetchall()
+    if len(results) == 0:
+        return None
+
+    num_wars_to_go_back = 5
+
+    war_size_query = 'SELECT war_id, war_size FROM wars'
+    cursor.execute(war_size_query)
+    war_size_results = cursor.fetchall()
+    war_size_dict = {war_id:war_size for (war_id, war_size) in war_size_results}
+
+    # this is hacky but as I am in the middle of a rewrite this branch shouldn't
+    # be used too long so ignore the ugly :)
+    for entry in results:
+        tag, name = entry
+        member_tags = {tag:name}
+        results = get_past_war_performance_for_member_tags(member_tags, num_wars_to_go_back)
+        member_attacks_count = 0
+        attack_deviations = []
+        missed = 0
+        zero_star = 0
+        one_star = 0
+        two_star = 0
+        three_star = 0
+        member_attacks_count_made = 0
+        for entry in results['wars_participated_in']:
+            #member_attacks.extend(entry['war_attacks'])
+            this_war_id = entry['war_details']['war_id']
+            this_war_size = war_size_dict[this_war_id]
+            for attack in entry['war_attacks']:
+                member_attacks_count += 1
+                if attack['defender_town_hall'] == None:
+                    missed += 1
+                    continue
+                elif attack['stars'] == 0:
+                    zero_star += 1
+                elif attack['stars'] == 1:
+                    one_star += 1
+                elif attack['stars'] == 2:
+                    two_star += 1
+                elif attack['stars'] == 3:
+                    three_star += 1
+                member_attacks_count_made += 1
+                attacker_position_on_map = attack['attacker_position']
+                defender_position_on_map = attack['defender_position']
+                deviation = 100 * (attacker_position_on_map - defender_position_on_map) / this_war_size
+                deviation = '{:.2f}'.format(deviation)
+                attack_deviations.append(deviation)
+#                print('attacker pos: {}'.format(attacker_position_on_map))
+#                print('defender pos: {}'.format(defender_position_on_map))
+#                print('dev: {}'.format(deviation))
+        total_attacks = member_attacks_count
+        if total_attacks == 0:
+            percent_zero_star = '-'
+            percent_one_star = '-'
+            percent_two_star = '-'
+            percent_three_star = '-'
+            percent_no_show = '-'
+        else:
+            percent_zero_star = '{:.2f}'.format(100 * zero_star / member_attacks_count_made)
+            percent_one_star = '{:.2f}'.format(100 * one_star / member_attacks_count_made)
+            percent_two_star = '{:.2f}'.format(100 * two_star / member_attacks_count_made)
+            percent_three_star = '{:.2f}'.format(100 * three_star / member_attacks_count_made)
+            percent_no_show = '{:.2f}'.format(100 * missed / total_attacks)
+        th_query = 'SELECT town_hall_level FROM members WHERE member_tag = ?'
+        cursor.execute(th_query, (tag,))
+        current_th = cursor.fetchall()[0][0]
+
+        print(name)
+        print('Current town hall: {}'.format(current_th))
+        print('Number of attacks possible: {}'.format(member_attacks_count))
+        print('Percentage no show: {}%'.format(percent_no_show))
+        print('Number of attacks made: {}'.format(member_attacks_count_made))
+        print('Percentage 3*: {}%'.format(percent_three_star))
+        print('Percentage 2*: {}%'.format(percent_two_star))
+        print('Percentage 1*: {}%'.format(percent_one_star))
+        print('Percentage 0*: {}%'.format(percent_zero_star))
+        print('Attack deviations: {}%'.format(attack_deviations))
+        #print(member_attacks)
+        print('')
+    conn.close()
 
 if __name__ == "__main__":
     #	result = getMembersFromLastWar()
-    result = getMembersWithScoreUnderThreshold(300)
-    print(result)
+    #result = getMembersWithScoreUnderThreshold(300)
+    #print(result)
+    getMembersWithPoorWarPerformance()
