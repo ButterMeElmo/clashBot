@@ -31,3 +31,6 @@ ClashBot/clashData.db-journal
 # files I am working on and don't want uploaded
 *.wip
 *.old
+
+# IntelliJ
+*.idea

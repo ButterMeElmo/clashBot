@@ -1,0 +1,58 @@
+{
+    "Rules":[
+        {
+            "description":"**Since the recent matchmaking changes, recruiting has become more difficult. So, we have some rule changes to make the clan more appealing to new members. Please read over them and make sure you understand them.**",
+            "color":3447003
+        },
+        {
+            "title":"How do I get elder/co-leader?",
+            "description":"\n\n-In order to get/keep elder as a TH 7 you should donate 100+ a season and be consistent in war, as well as follow the clan games requirements, below.\n\n-In order to get/keep elder as a TH 8+ you should donate 350+ a season and be consistent in war, as well as follow the clan games requirements, below.\n\n-In order to get/keep co-leader as a TH7+ you should donate 1000+ a season, be consistent in war, and be helpful to other clan members (good advice, etc), as well as follow the clan games requirements, below.\n\n-These promotions will be re-checked monthly, so make sure that once you have a title, you continue to contribute so you can keep the promotion!",
+            "color":3066993
+        },
+        {
+            "title":"I have to donate 100/350/1000 troops in a season... What is a season?",
+            "description":"-A season is a month at a time, which is when the league badges reset. It starts right around the beginning of every month.\n\n-If that seems like a lot of donations, it's not too bad. Just queue up some troops to stay in your barracks behind your army and donate a time or two a day. There is usually 1-2 requests up in the middle of the day for you to top off!",
+            "color":3447003
+        },
+        {
+            "title":"What exactly does it mean to be consistent in war?",
+            "description":"-Participate in at least the clan-wide wars, and preferably all wars when your heroes are up.\n\n-Use both attacks every war (If you may not be able to use both attacks, just opt out in game. Tell me when you've opted back in though!)\n\n-Get your attacks in quickly for war. Aim to have your first attack in within the first 6 hours, but definitely have it in within 12 hours.\n\n-Do NOT rush your attacks in during the last 6 hours of war. That makes it hard to plan everyone's attacks.\n\n-Use your attacks intelligently, consider where other people have left to attack.\n\n-Know your own strength and skill. Most attacks should end in 3 stars.\n\n-Ignore the base that Supercell recommends you attack. Attack above or below your rank as needed to get 3 stars.",
+            "color":3066993
+        },
+        {
+            "title":"New war rules to continue our success:",
+            "description":"-Respond to war reminders in Discord so we know you see them.\n\n-If your hero is above level 5 and is down for upgrading, opt out of war. Many of the high level people here have mini accounts for this reason. We don't want to take the fun out of the game, but it hurts us to have a hero missing.",
+            "color":3447003
+        },
+        {
+            "title":"Minimum hero level requirements before upgrading Town Hall",
+            "description":"-You must be sure to level up your heroes. They are your strongest troops.\n\n-Before going to TH 9, your King must be level 5 or higher.\n\n-Before going to TH 10, your King and Queen must be level 20 or higher.\n\n-Before going to TH 11, your King and Queen must be level 25 or higher.\n\n-Before going to TH 12, your King and Queen must be level 35 or higher and your Warden should be 20.",
+            "color":3066993
+        },
+        {
+            "title":"Upgrading Town Halls/New Defenses",
+            "description":"-Consider not building the bomb tower for a while, the war weight is very high for the amount of defense it provides.\n\n-When upgrading to TH 9, please refrain from building X-bows until you have a chance to upgrade enough offensive troops to easily handle them in war.\n\n-Similarly, when upgrading to TH 10, do not build infernos for a while.\n\n-At TH 11, don't build the EA for a while either.\n\n-In general, focus on your offensive upgrades first (lab, spell factory, army camps, clan castle, barracks, heroes etc) over defensive upgrades (cannon, mortar, wiz tower, etc.) The best rule is to drop a defense when you feel you can consistently 3 star your own base.",
+            "color":3447003
+        },
+        {
+            "title":"Clan Games",
+            "description":"-In order to be an elder you should aim for an average of 200 points per day.\n\n-In order to be a co-leader you should aim for an average of 300 points per day.\n\n-To clarify, you don't need 200/300 every day, just the equivalent of that each day. (As in, 300 day 1 and 100 day 2 would be the same as 200 per day.)\n\n-If you have multiple accounts eligible for the clan games, each extra account should get an additional average 200 daily for the clan games. However, these points can be divided among your accounts however you like, whatever is easiest for you. (For example, as a leader with one extra eligible account, I should average 500 a day between the two accounts, split between the two however is easiest.)",
+            "color":3066993
+        },
+        {
+            "title":"Troop Request/Donation Etiquette",
+            "description":"-Unless for war or for a Clash Event, don't constantly request troops that you cannot make. Max wiz/giants/archers/hogs are great!\n\n-Respect all troop requests.\n\n-For war, only donate troops if you have max troops, unless the attacker says that it is ok.\n\n-Never donate to the war map unless you have cleared it with a co-leader or have been asked to help.",
+            "color":3447003
+        },
+        {
+            "title":"Clan Conduct",
+            "description":"-Do not spam the chat. Having a conversation is fine, but we also don't want to remove active donation requests.\n\n-This is an English speaking clan, so please refrain from using other languages as those exclude members from your conversation.\n\n-This is a kid friendly clan, so please limit bad language.\n\n-No begging for elder or co. You can politely message me if you believe you've been overlooked for a promotion or other issue.",
+            "color":3066993
+        },
+        {
+            "title":"Closing thoughts",
+            "description":"-If you're not getting discord notifications when tagged, please turn them on! I can remove you from @troopdonators if you want out.\n\n-There is nothing wrong with asking other clan members for advice. Similarly, failing attacks does happen, but make sure to learn from it, and not just immediately close the app never to review what you did wrong. If you can’t figure it out, ask others for feedback!\n\n-Finally, this clan is a clan made great by the members in it. If you have any suggestions, criticism, or any other form of feedback, please let me know!",
+            "color":3447003
+        }  
+    ]
+}
