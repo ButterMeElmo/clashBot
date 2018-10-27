@@ -12,6 +12,7 @@ node_modules/
 
 # virtualenv
 env/
+venv/
 
 ClashBot.egg-info/
 
@@ -34,3 +35,6 @@ ClashBot/clashData.db-journal
 
 # IntelliJ
 *.idea
+
+# Used for moving files around :)
+rsync_command

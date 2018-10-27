@@ -3,14 +3,15 @@ import json
 from subprocess import call
 import datetime
 import pytz
-from .date_fetcher_formatter import DateFetcherFormatter
+
+from ClashBot import DateFetcherFormatter
 
 class SupercellDataFetcher:
 
     date_fetcher_formatter = DateFetcherFormatter()
     
     def getDataFromServer(self):
-        call(["node", "discordBot.js", ">", "/dev/null"])
+        call(["node", "myCocAPI.js", ">", "/dev/null"])
 
     def getFileNames(self, directoryForData, startingFileName, extension, startingTimeStamp):
         date = datetime.datetime.utcfromtimestamp(startingTimeStamp)

@@ -50,10 +50,10 @@ class ClashOfClansAPI:
         return response.text
 
 def main():
-    token = config_bot.token_to_use
+    token = config_bot.supercell_token_to_use
     coc_client = ClashOfClansAPI(token)
     
-    my_clan_tag = config_bot.my_clan_tag
+    my_clan_tag = config_bot.my_clan_tag[1:]
 
     clan_war_log = coc_client.get_clan_war_log(my_clan_tag)
     current_clan_war = coc_client.get_current_clan_war(my_clan_tag)
