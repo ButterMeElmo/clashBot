@@ -12,7 +12,7 @@ class SCANNEDDATA(Base):
     troops_received_monthly = Column(Integer)
     spells_donated_achievement = Column(Integer)
     troops_donated_achievement = Column(Integer)
-    clan_games_points = Column(Integer)
+    clan_games_points_achievement = Column(Integer)
     attacks_won = Column(Integer)
     defenses_won = Column(Integer)
     town_hall_level = Column(SmallInteger)

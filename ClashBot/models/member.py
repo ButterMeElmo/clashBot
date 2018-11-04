@@ -11,6 +11,7 @@ class MEMBER(Base):
 #    last_checked_town_hall = Column(Integer)
     in_clan_currently = Column(Integer)
     in_war_currently = Column(Integer)
+    last_updated_time = Column(Integer)
 #    free_item_day_of_week = Column(SmallInteger)
 #    free_item_hour_to_remind = Column(SmallInteger)
 #    wants_gift_reminder = Column(SmallInteger)
