@@ -77,3 +77,9 @@ python3 clashDiscordBot.py
 ```
 
 And the discord bot will join and work on your server. Type !help in one of your channels to see what it can do!
+
+To run tests:
+
+```
+python3 -m pytest -k test_add_clan_to_db_unique
+```
