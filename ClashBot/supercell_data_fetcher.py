@@ -1,45 +1,49 @@
-import time
-import json
-from subprocess import call
 import datetime
+import json
 import pytz
+import time
+
+from subprocess import call
 
 from ClashBot import DateFetcherFormatter
+from ClashBot import ClashOfClansAPI
+
 
 class SupercellDataFetcher:
 
     date_fetcher_formatter = DateFetcherFormatter()
     
     def getDataFromServer(self):
-        call(["node", "myCocAPI.js", ">", "/dev/null"])
+        # call(["node", "myCocAPI.js", ">", "/dev/null"])
+        ClashOfClansAPI.fetch_and_save()
 
-    def getFileNames(self, directoryForData, startingFileName, extension, startingTimeStamp):
-        date = datetime.datetime.utcfromtimestamp(startingTimeStamp)
+    def getFileNames(self, directory_for_data, starting_file_name, extension, starting_time_stamp):
+        date = datetime.datetime.utcfromtimestamp(starting_time_stamp)
         counter_aware_utc_dt = date.replace(tzinfo=pytz.utc)
 
         results = []
 
-        endOfToday = self.date_fetcher_formatter.getUTCDateTime().replace(hour = 23, minute=59, second=59)
+        end_of_today = self.date_fetcher_formatter.getUTCDateTime().replace(hour=23, minute=59, second=59)
 
-        while counter_aware_utc_dt <= endOfToday:
-            results.append(self.getFileName(directoryForData, startingFileName, extension, counter_aware_utc_dt))
-            counter_aware_utc_dt = counter_aware_utc_dt.replace(hour = 12)
+        while counter_aware_utc_dt <= end_of_today:
+            results.append(self.getFileName(directory_for_data, starting_file_name, extension, counter_aware_utc_dt))
+            counter_aware_utc_dt = counter_aware_utc_dt.replace(hour= 12)
             counter_aware_utc_dt = counter_aware_utc_dt + datetime.timedelta(days=1)
-            counter_aware_utc_dt = counter_aware_utc_dt.replace(hour = 12)
+            counter_aware_utc_dt = counter_aware_utc_dt.replace(hour= 12)
 
         return results
 
-    def getFileName(self, directoryForData, startingFileName, extension, date = None):
-        directoryForData = str(directoryForData)
-        if len(directoryForData) > 0 and directoryForData[-1] != '/' and directoryForData[-1] != '\\':
-            directoryForData += "/"
-        if date == None:
+    def getFileName(self, directory_for_data, starting_file_name, extension, date = None):
+        directory_for_data = str(directory_for_data)
+        if len(directory_for_data) > 0 and directory_for_data[-1] != '/' and directory_for_data[-1] != '\\':
+            directory_for_data += "/"
+        if date is None:
             date = self.date_fetcher_formatter.getUTCDateTime()
         year = date.year
         month = date.month
         day = date.day
-        dateString = '_' + str(year) + '-' + str(month) + '-' + str(day)
-        result =  directoryForData + startingFileName + dateString + extension
+        date_string = '_' + str(year) + '-' + str(month) + '-' + str(day)
+        result = directory_for_data + starting_file_name + date_string + extension
         return result
 
     def validateData(self, directoryForData = 'data'):
@@ -50,17 +54,17 @@ class SupercellDataFetcher:
 
         try:
             with open(self.getFileName(directoryForData, "warDetailsLog", ".json"), "r") as file:
-                warDetailsSnapshot = json.load(file)
-                datasets.append(warDetailsSnapshot)
+                war_details_snapshot = json.load(file)
+                datasets.append(war_details_snapshot)
             with open(self.getFileName(directoryForData, "clanLog", ".json"), "r") as file:
-                clanProfileSnapshot = json.load(file)
-                datasets.append(clanProfileSnapshot)
+                clan_profile_snapshot = json.load(file)
+                datasets.append(clan_profile_snapshot)
             with open(self.getFileName(directoryForData, "warLog", ".json"), "r") as file:
-                warLogSnapshot = json.load(file)
-                datasets.append(warLogSnapshot)
+                war_log_snapshot = json.load(file)
+                datasets.append(war_log_snapshot)
             with open(self.getFileName(directoryForData, "clanPlayerAchievements", ".json"), "r") as file:
-                playerAchievementsSnapshot = json.load(file)
-                datasets.append(playerAchievementsSnapshot)
+                player_achievements_snapshot = json.load(file)
+                datasets.append(player_achievements_snapshot)
         except FileNotFoundError as e:
             print('A file did not get created: {}'.format(e))
             return False
@@ -68,7 +72,7 @@ class SupercellDataFetcher:
             print('A file does not contain valid json: {}'.format(e))
             return False
 
-        currentTime = self.date_fetcher_formatter.getUTCTimestamp() * 1000
+        current_time = self.date_fetcher_formatter.getUTCTimestamp() * 1000
 
         for dataset in datasets:
             if len(dataset) == 0:
@@ -78,17 +82,19 @@ class SupercellDataFetcher:
             if "timestamp" not in lastSnapshot:
                 print('This data had no timetamp.')
                 return False
-            lastSnapshotTime = lastSnapshot["timestamp"]
-            timeDifference = currentTime - lastSnapshotTime
-            oneMinute = 60 * 1000
-            print("last snapshot was at:  {}".format(lastSnapshotTime))
-            print("currently the time is: {}".format(currentTime))
-            if timeDifference > oneMinute:
+            last_snapshot_time = lastSnapshot["timestamp"]
+            time_difference = current_time - last_snapshot_time
+            one_minute = 60 * 1000
+            print("last snapshot was at:  {}".format(last_snapshot_time))
+            print("currently the time is: {}".format(current_time))
+            if time_difference > one_minute:
                 print('This data is too old.')
                 return False
         return True		
 
+
 def main():
+
     scdf = SupercellDataFetcher()
     scdf.getDataFromServer()
     valid = scdf.validateData()
@@ -97,6 +103,10 @@ def main():
     else:
         print("Data was not retrieved")
 
-if __name__ == "__main__":
-    main()
 
+def init():
+    if __name__ == "__main__":
+        main()
+
+
+init()
