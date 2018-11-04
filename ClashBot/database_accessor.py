@@ -1554,12 +1554,19 @@ def getMembersWithPoorWarPerformance():
             percent_two_star = '-'
             percent_three_star = '-'
             percent_no_show = '-'
+        elif member_attacks_count_made == 0:
+            percent_zero_star = '-'
+            percent_one_star = '-'
+            percent_two_star = '-'
+            percent_three_star = '-'
+            percent_no_show = '100'
         else:
             percent_zero_star = '{:.2f}'.format(100 * zero_star / member_attacks_count_made)
             percent_one_star = '{:.2f}'.format(100 * one_star / member_attacks_count_made)
             percent_two_star = '{:.2f}'.format(100 * two_star / member_attacks_count_made)
             percent_three_star = '{:.2f}'.format(100 * three_star / member_attacks_count_made)
             percent_no_show = '{:.2f}'.format(100 * missed / total_attacks)
+            
         th_query = 'SELECT town_hall_level FROM members WHERE member_tag = ?'
         cursor.execute(th_query, (tag,))
         current_th = cursor.fetchall()[0][0]
