@@ -976,8 +976,12 @@ async def startGatheringData():
 
             try:
                 await discordClient.send_message(botChannel, "Getting data")
-                getDataFromServer.getDataFromServer()
-                await asyncio.sleep(1)
+                try:
+                    getDataFromServer.getDataFromServer()
+                    await asyncio.sleep(1)
+                except Exception as e:
+                    await discordClient.send_message(botChannel, "getDataFromServer: {}".format(e))
+                    raise
                 try:
                     dataValid = getDataFromServer.validateData()
                 except IOError as e:
@@ -985,12 +989,17 @@ async def startGatheringData():
                     dataValid = False
             except Exception as e:
                 print(e)
-                await discordClient.send_message(botChannel, "error, trying again momentairily")
+                await discordClient.send_message(botChannel, "error, trying again momentarily")
                 await asyncio.sleep(60)
-                getDataFromServer.getDataFromServer()
-                dataValid = getDataFromServer.validateData()
+                try:
+                    await discordClient.send_message(botChannel, "trying again now")
+                    getDataFromServer.getDataFromServer()
+                    dataValid = getDataFromServer.validateData()
+                except:
+                    await discordClient.send_message(botChannel, "Something is not working")
+                    dataValid = False
             if dataValid:
-                await discordClient.send_message(botChannel, "Data was retreived")
+                await discordClient.send_message(botChannel, "Data was retrieved")
                 try:
                     clashSaveData.saveData()
                     await asyncio.sleep(1)
@@ -1004,7 +1013,7 @@ async def startGatheringData():
                 except:
                     await discordClient.send_message(botChannel, "Data failed to save")
             else:
-                await discordClient.send_message(botChannel, "Data was not retreived")
+                await discordClient.send_message(botChannel, "Data was not retrieved")
 
     except Exception as err:
         print("Error: " + str(err))
