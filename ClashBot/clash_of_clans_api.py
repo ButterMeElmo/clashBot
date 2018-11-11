@@ -1,7 +1,6 @@
 import requests
 import json
-import config_bot
-from ClashBot import SupercellDataFetcher, DateFetcherFormatter
+from ClashBot import SupercellDataFetcher, DateFetcherFormatter, MyConfigBot
 import os.path
 
 
@@ -91,10 +90,10 @@ def save_data(file_name, data_to_save):
 
 def fetch_and_save():
     print('Starting fetching data from clash api')
-    token = config_bot.supercell_token_to_use
+    token = MyConfigBot.supercell_token_to_use
     coc_client = ClashOfClansAPI(token)
 
-    my_clan_tag = config_bot.my_clan_tag[1:]
+    my_clan_tag = MyConfigBot.my_clan_tag[1:]
 
     clan_profile = coc_client.get_clan_profile(my_clan_tag)
 

@@ -1,17 +1,18 @@
 """This file holds constants specific to the discord bot, discord server, and discord roles."""
 
-token = "wepogjewaojwapojwaeopgjweagoihgiawehawgihw"
-app_id = "8312571983579"
-locale = "en"
-generalChannelID = "172893572895712985729"
-warChannelID = "2381759719571298572395"
-modChannelID = "218375892157295"
-rulesChannelID = "12839512975151"
-testingChannelID = "1293875812572819"
-connectionMessagesChannelIDs = ["172893572895712985729"]
-modName = "leaders"
-leaderDiscordID = "17488612747262981"
-leader_nickname = "Rich"
+class MyConfigBot:
+    token = "wepogjewaojwapojwaeopgjweagoihgiawehawgihw"
+    app_id = "8312571983579"
+    locale = "en"
+    generalChannelID = "172893572895712985729"
+    warChannelID = "2381759719571298572395"
+    modChannelID = "218375892157295"
+    rulesChannelID = "12839512975151"
+    testingChannelID = "1293875812572819"
+    connectionMessagesChannelIDs = ["172893572895712985729"]
+    modName = "leaders"
+    leaderDiscordID = "17488612747262981"
+    leader_nickname = "Rich"
 
-supercell_token_to_use = "OFHWIOAGNIOHEOAGJAOPGJOPAJFOPAHAOPEHHIPAHOPAOHOP"
-my_clan_tag = "#AWFH1234"
+    supercell_token_to_use = "OFHWIOAGNIOHEOAGJAOPGJOPAJFOPAHAOPEHHIPAHOPAOHOP"
+    my_clan_tag = "#AWFH1234"
