@@ -6,7 +6,7 @@ import time
 from subprocess import call
 
 from ClashBot import DateFetcherFormatter
-from ClashBot import ClashOfClansAPI
+# from ClashBot import ClashOfClansAPI
 
 
 class SupercellDataFetcher:
@@ -14,8 +14,8 @@ class SupercellDataFetcher:
     date_fetcher_formatter = DateFetcherFormatter()
     
     def getDataFromServer(self):
-        # call(["node", "myCocAPI.js", ">", "/dev/null"])
-        ClashOfClansAPI.fetch_and_save()
+        call(["node", "myCocAPI.js", ">", "/dev/null"])
+        # ClashOfClansAPI.fetch_and_save()
 
     def getFileNames(self, directory_for_data, starting_file_name, extension, starting_time_stamp):
         date = datetime.datetime.utcfromtimestamp(starting_time_stamp)
@@ -46,7 +46,7 @@ class SupercellDataFetcher:
         result = directory_for_data + starting_file_name + date_string + extension
         return result
 
-    def validateData(self, directoryForData = 'data'):
+    def validateData(self, directoryForData='data'):
         """
         Makes sure the data pull was successful.
         """
@@ -80,7 +80,7 @@ class SupercellDataFetcher:
                 return False
             lastSnapshot = dataset[len(dataset) - 1]
             if "timestamp" not in lastSnapshot:
-                print('This data had no timetamp.')
+                print('This data had no timestamp.')
                 return False
             last_snapshot_time = lastSnapshot["timestamp"]
             time_difference = current_time - last_snapshot_time
