@@ -837,10 +837,41 @@ async def sendOutGiftReminders():
         timeToSleep = nextTimestamp - currentDateTimeTimestamp
         await asyncio.sleep(timeToSleep)
 
-
-async def sendOutWarReminders():
+async def actually_send_reminders(nextTimestampsForWar):
     warChannel = discordClient.get_channel(config_bot.warChannelID)
     botChannel = discordClient.get_channel(config_bot.testingChannelID)
+    accountsThatNeedToAttack = clashAccessData.getMembersInWarWithAttacksRemaining()
+    nextWarTimestamp = nextTimestampsForWar[0][0]
+    nextWarTimestampString = nextTimestampsForWar[0][1]
+    for discordID in accountsThatNeedToAttack:
+        accountNamesDict = accountsThatNeedToAttack[discordID]
+        accountNamesString = ""
+        accountsTotal = len(accountNamesDict)
+        currentAccount = 0
+        for accountName in accountNamesDict:
+            numberOfAttacks = accountNamesDict[accountName]
+            if numberOfAttacks == 1:
+                accountNamesString += ' your {} attack with {}'.format(
+                    numberOfAttacks, accountName)
+            else:
+                accountNamesString += ' your {} attacks with {}'.format(
+                    numberOfAttacks, accountName)
+            if currentAccount == accountsTotal - 1:
+                # last account, do nothing at the end
+                accountNamesString += ''
+            elif currentAccount == accountsTotal - 2 and accountsTotal == 2:
+                accountNamesString += ' and'
+            elif currentAccount == accountsTotal - 2:
+                accountNamesString += ', and'
+            else:
+                accountNamesString += ','
+            currentAccount += 1
+        discordID = str(discordID)
+        member = server.get_member(discordID)
+        await discordClient.send_message(warChannel, 'Hey {}, make sure to use{}! {}'.format(member.mention, accountNamesString, nextWarTimestampString))
+        await asyncio.sleep(1)
+
+async def sendOutWarReminders():
     while True:
         nextTimestampsForWar = clashAccessData.getTimestampsForCurrentWar()
         if nextTimestampsForWar == None:
@@ -856,34 +887,7 @@ async def sendOutWarReminders():
             while lastUpdatedData < timeChecking:
                 await asyncio.sleep(1)
 
-            accountsThatNeedToAttack = clashAccessData.getMembersInWarWithAttacksRemaining()
-            for discordID in accountsThatNeedToAttack:
-                accountNamesDict = accountsThatNeedToAttack[discordID]
-                accountNamesString = ""
-                accountsTotal = len(accountNamesDict)
-                currentAccount = 0
-                for accountName in accountNamesDict:
-                    numberOfAttacks = accountNamesDict[accountName]
-                    if numberOfAttacks == 1:
-                        accountNamesString += ' your {} attack with {}'.format(
-                            numberOfAttacks, accountName)
-                    else:
-                        accountNamesString += ' your {} attacks with {}'.format(
-                            numberOfAttacks, accountName)
-                    if currentAccount == accountsTotal - 1:
-                        # last account, do nothing at the end
-                        accountNamesString += ''
-                    elif currentAccount == accountsTotal - 2 and accountsTotal == 2:
-                        accountNamesString += ' and'
-                    elif currentAccount == accountsTotal - 2:
-                        accountNamesString += ', and'
-                    else:
-                        accountNamesString += ','
-                    currentAccount += 1
-                discordID = str(discordID)
-                member = server.get_member(discordID)
-                await discordClient.send_message(warChannel, 'Hey {}, make sure to use{}! {}'.format(member.mention, accountNamesString, nextWarTimestampString))
-                await asyncio.sleep(1)
+            await actually_send_reminders(nextTimestampsForWar)
 
 
 async def createRules():
