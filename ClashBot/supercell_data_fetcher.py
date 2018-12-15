@@ -47,7 +47,6 @@ class SupercellDataFetcher:
         if output_dir[-1] != '/':
             output_dir += '/'
         extension = '.json'
-        dff = DateFetcherFormatter()
         data_file_path = self.get_file_name(output_dir, file_name, extension)
         if os.path.isfile(data_file_path):
             with open(data_file_path, 'r') as in_file:

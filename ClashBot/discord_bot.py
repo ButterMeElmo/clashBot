@@ -128,8 +128,7 @@ class AccountManagement:
                                 account)
                         await discord_client.send_message(ctx.message.channel, result_string)
 
-                discord_client.loop.create_task(
-                    waitForResult(account, message, ctx))
+                discord_client.loop.create_task(waitForResult(account, message, ctx))
 
     @commands.command(name='start', pass_context=True,  brief='Connect your discord to a clash account')
     async def start(self, ctx):
@@ -519,8 +518,7 @@ class ClanWar:
                                 account)
                     await discord_client.send_message(ctx.message.channel, result_string)
 
-                discord_client.loop.create_task(
-                    wait_for_result(account, message, ctx))
+                discord_client.loop.create_task(wait_for_result(account, message, ctx))
 
 
 class ClanGames:
@@ -950,13 +948,15 @@ async def start_gathering_data():
             try:
                 await discord_client.send_message(bot_channel, "Getting data")
                 try:
-                    await discord_client.loop.run_in_executor(None, data_fetcher.get_data_from_server)
+                    # await discord_client.loop.run_in_executor(None, data_fetcher.get_data_from_server)
+                    data_fetcher.get_data_from_server()
                     await asyncio.sleep(1)
                 except Exception as e:
                     await discord_client.send_message(bot_channel, "get_data_from_server: {}".format(e))
                     raise
                 try:
-                    data_valid = await discord_client.loop.run_in_executor(None, data_fetcher.validate_data)
+                    # data_valid = await discord_client.loop.run_in_executor(None, data_fetcher.validate_data)
+                    data_valid = data_fetcher.validate_data()
                 except IOError as e:
                     await discord_client.send_message(bot_channel, "The data file doesn't exist to validate {}".format(e))
                     data_valid = False
@@ -966,15 +966,18 @@ async def start_gathering_data():
                 await asyncio.sleep(60)
                 try:
                     await discord_client.send_message(bot_channel, "trying again now")
-                    await discord_client.loop.run_in_executor(None, data_fetcher.get_data_from_server)
-                    data_valid = await discord_client.loop.run_in_executor(None, data_fetcher.validate_data)
+                    # await discord_client.loop.run_in_executor(None, data_fetcher.get_data_from_server)
+                    data_fetcher.get_data_from_server()
+                    # data_valid = await discord_client.loop.run_in_executor(None, data_fetcher.validate_data)
+                    data_valid = data_fetcher.validate_data()
                 except:
                     await discord_client.send_message(bot_channel, "Something is not working")
                     data_valid = False
             if data_valid:
                 await discord_client.send_message(bot_channel, "Data was retrieved")
                 try:
-                    await discord_client.loop.run_in_executor(None, fetched_data_processor.save_data)
+                    # await discord_client.loop.run_in_executor(None, fetched_data_processor.save_data)
+                    fetched_data_processor.save_data()
                     await asyncio.sleep(1)
                     # last_updated_data = DateFetcherFormatter.get_utc_timestamp()
                     await discord_client.send_message(bot_channel, "Data was saved")

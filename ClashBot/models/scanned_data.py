@@ -19,13 +19,6 @@ class SCANNEDDATA(Base):
     town_hall_level = Column(SmallInteger)
     timestamp = Column(Integer)
 
-    # MEMBER = relationship('MEMBER')
-    # SCANNED_DATA_TIME = relationship('SCANNEDDATATIME')
-
-    # scanned_data_time = relationship("SCANNEDDATATIME",
-    #                                  back_populates="scanned_data"
-    #                                  )
-
     # member = relationship("MEMBER",
     #                        back_populates="scanned_data"
     #                        )

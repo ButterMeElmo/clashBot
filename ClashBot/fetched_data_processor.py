@@ -732,10 +732,6 @@ class FetchedDataProcessor(BasicDBOps):
         aware_utc_dt = aware_utc_dt + datetime.timedelta(days=1)
         while start_time < aware_utc_dt.timestamp():
             end_time = self.get_next_season_time_stamp(start_time) - 1
-            season_kwargs = {
-                'start_time': start_time,
-                'end_time': end_time
-            }
 
             if start_time not in self.seasons:
                 instance = SEASON()

@@ -3,13 +3,13 @@ from .meta import *
 class SEASONHISTORICALDATA(Base):
     __tablename__ = 'SEASON_HISTORICAL_DATA'
     __table_args__ = (
-        UniqueConstraint('season_ID', 'member_tag', 'scanned_data_index'),
+        UniqueConstraint('season_ID', 'member_tag', 'timestamp'),
     )
 
     id = Column(Integer, primary_key=True)
     season_ID = Column(Integer, nullable=False)
     member_tag = Column(String(20), nullable=False)
-    scanned_data_index = Column(Integer)
+    timestamp = Column(Integer)
     troops_donated = Column(Integer)
     troops_received = Column(Integer)
     spells_donated = Column(Integer)
