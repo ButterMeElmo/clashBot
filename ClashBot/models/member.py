@@ -40,32 +40,41 @@ class MEMBER(Base):
 
     clan_games_scores = relationship("CLANGAMESSCORE",
                                      back_populates="member",
-                                     collection_class=attribute_mapped_collection('note_key')
+                                     collection_class=attribute_mapped_collection('clan_games_id')
                                      )
 
-    def get_first_scanned_data_after_time(self, timestamp):
-        for scanned_data_timestamp in self.scanned_data:
-            if scanned_data_timestamp > timestamp:
-                return self.scanned_data[scanned_data_timestamp]
-        return None
+    season_historical_data = relationship("SEASONHISTORICALDATA", back_populates="member")
 
-    def get_last_scanned_data_before_time(self, timestamp):
-        for scanned_data_timestamp in sorted(self.scanned_data, reverse=True):
-            if scanned_data_timestamp < timestamp:
-                return self.scanned_data[scanned_data_timestamp]
-        return None
-
-    def get_last_scanned_data_between_timestamps(self, start, finish):
-        for scanned_data_timestamp in sorted(self.scanned_data, reverse=True):
-            if start < scanned_data_timestamp < finish:
-                return self.scanned_data[scanned_data_timestamp]
-        return None
-
-    def get_first_scanned_data_between_timestamps(self, start, finish):
-        for scanned_data_timestamp in self.scanned_data:
-            if scanned_data_timestamp > start and scanned_data_timestamp < finish:
-                return self.scanned_data[scanned_data_timestamp]
-        return None
+    # def get_first_scanned_data_after_time(self, timestamp):
+    #     for scanned_data_timestamp in self.scanned_data:
+    #         if scanned_data_timestamp > timestamp:
+    #             return self.scanned_data[scanned_data_timestamp]
+    #     return None
+    #
+    # def get_last_scanned_data_before_time(self, timestamp):
+    #     for scanned_data_timestamp in sorted(self.scanned_data, reverse=True):
+    #         if scanned_data_timestamp < timestamp:
+    #             return self.scanned_data[scanned_data_timestamp]
+    #     return None
+    #
+    # def get_last_scanned_data_between_timestamps(self, start, finish):
+    #     for scanned_data_timestamp in sorted(self.scanned_data, reverse=True):
+    #         if start < scanned_data_timestamp < finish:
+    #             return self.scanned_data[scanned_data_timestamp]
+    #     return None
+    #
+    # def get_first_scanned_data_between_timestamps(self, start, finish):
+    #     for scanned_data_timestamp in self.scanned_data:
+    #         if scanned_data_timestamp > start and scanned_data_timestamp < finish:
+    #             return self.scanned_data[scanned_data_timestamp]
+    #     return None
+    #
+    # def get_all_scanned_data_between_timestamps(self, start, finish):
+    #     result = []
+    #     for scanned_data_timestamp in self.scanned_data:
+    #         if scanned_data_timestamp > start and scanned_data_timestamp < finish:
+    #             result.append(self.scanned_data[scanned_data_timestamp])
+    #     return result
 
     # don't use this one
     war_participations = relationship("WARPARTICIPATION",

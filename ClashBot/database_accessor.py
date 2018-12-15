@@ -254,7 +254,7 @@ def getLastProcessedTime():
 def getSeasonIdForTimestamp(timestamp):
     cursor, conn = getCursorAndConnection()
     query = '''
-	SELECT season_ID
+	SELECT season_id
 		FROM
 			SEASONS
 		WHERE
@@ -855,7 +855,7 @@ def getMembersWithScoreUnderThreshold(threshold, extraRequiredPerAccount=200):
     #	cursor = conn.cursor()
     cursor, conn = getCursorAndConnection()
 
-    cursor.execute('SELECT MAX (clan_games_ID) FROM CLAN_GAMES_SCORE')
+    cursor.execute('SELECT MAX (clan_games_id) FROM CLAN_GAMES_SCORE')
     maxClanGamesID = cursor.fetchone()[0]
     data = []
 #	ineligible = []
@@ -864,17 +864,17 @@ def getMembersWithScoreUnderThreshold(threshold, extraRequiredPerAccount=200):
 
         cursor.execute(
             '''
-			SELECT mems.member_name, mems.member_tag, CLAN_GAMES_SCORE.clan_games_ID, CLAN_GAMES_SCORE.score
+			SELECT mems.member_name, mems.member_tag, CLAN_GAMES_SCORE.clan_games_id, CLAN_GAMES_SCORE.score
 			FROM MEMBERS mems
 			INNER JOIN CLAN_GAMES_SCORE
 				ON CLAN_GAMES_SCORE.member_tag = mems.member_tag
 			WHERE
-				mems.town_hall_level >= (SELECT min_town_hall FROM CLAN_GAMES WHERE clan_games_ID = ?)
+				mems.town_hall_level >= (SELECT min_town_hall FROM CLAN_GAMES WHERE clan_games_id = ?)
 			AND
-				CLAN_GAMES_SCORE.clan_games_ID = ?
+				CLAN_GAMES_SCORE.clan_games_id = ?
 			AND
 				mems.in_clan_currently = 1
-			ORDER BY mems.member_name, CLAN_GAMES_SCORE.clan_games_ID;
+			ORDER BY mems.member_name, CLAN_GAMES_SCORE.clan_games_id;
 			''', (i, i,)
         )
         results = cursor.fetchall()
@@ -883,17 +883,17 @@ def getMembersWithScoreUnderThreshold(threshold, extraRequiredPerAccount=200):
         data.extend(results)
 #		cursor.execute(
 #			'''
-#			SELECT mems.member_name, mems.member_tag, CLAN_GAMES_SCORE.clan_games_ID, CLAN_GAMES_SCORE.score
+#			SELECT mems.member_name, mems.member_tag, CLAN_GAMES_SCORE.clan_games_id, CLAN_GAMES_SCORE.score
 #			FROM MEMBERS mems
 #			INNER JOIN CLAN_GAMES_SCORE
 #				ON CLAN_GAMES_SCORE.member_tag = mems.member_tag
 #			WHERE
-#				mems.town_hall_level < (SELECT min_town_hall FROM CLAN_GAMES WHERE clan_games_ID = ?)
+#				mems.town_hall_level < (SELECT min_town_hall FROM CLAN_GAMES WHERE clan_games_id = ?)
 #			AND
-#				CLAN_GAMES_SCORE.clan_games_ID = ?
+#				CLAN_GAMES_SCORE.clan_games_id = ?
 #			AND
 #				mems.in_clan_currently = 1
-#			ORDER BY mems.member_name, CLAN_GAMES_SCORE.clan_games_ID;
+#			ORDER BY mems.member_name, CLAN_GAMES_SCORE.clan_games_id;
 #			'''
 #			,(i,i,)
 #			)
@@ -1115,13 +1115,13 @@ def getClanGamesResultsForMemberName(memberName):
 
     if discordID is None:
         query = '''
-			SELECT MEMBERS.member_name, CLAN_GAMES_SCORE.clan_games_ID, CLAN_GAMES_SCORE.score
+			SELECT MEMBERS.member_name, CLAN_GAMES_SCORE.clan_games_id, CLAN_GAMES_SCORE.score
 			FROM MEMBERS			
 			INNER JOIN CLAN_GAMES_SCORE
 				ON CLAN_GAMES_SCORE.member_tag = MEMBERS.member_tag
 			WHERE
 				UPPER(MEMBERS.member_name) = UPPER(?)
-			ORDER BY CLAN_GAMES_SCORE.clan_games_ID, MEMBERS.member_name
+			ORDER BY CLAN_GAMES_SCORE.clan_games_id, MEMBERS.member_name
 			'''
         cursor.execute(query, (memberName,))
         results = cursor.fetchall()
@@ -1150,7 +1150,7 @@ def getClanGamesResultsFor(discordID):
     cursor, conn = getCursorAndConnection()
     cursor.execute(
         '''
-		SELECT MEMBERS.member_name, CLAN_GAMES_SCORE.clan_games_ID, CLAN_GAMES_SCORE.score
+		SELECT MEMBERS.member_name, CLAN_GAMES_SCORE.clan_games_id, CLAN_GAMES_SCORE.score
 		FROM MEMBERS			
 		INNER JOIN CLAN_GAMES_SCORE
 			ON CLAN_GAMES_SCORE.member_tag = MEMBERS.member_tag
@@ -1158,7 +1158,7 @@ def getClanGamesResultsFor(discordID):
 			ON DISCORD_CLASH_LINKS.member_tag = MEMBERS.member_tag
 		WHERE
 			DISCORD_CLASH_LINKS.discord_tag = ?
-		ORDER BY CLAN_GAMES_SCORE.clan_games_ID, DISCORD_CLASH_LINKS.account_order, MEMBERS.member_name
+		ORDER BY CLAN_GAMES_SCORE.clan_games_id, DISCORD_CLASH_LINKS.account_order, MEMBERS.member_name
 		''', (discordID,))
     results = cursor.fetchall()
 

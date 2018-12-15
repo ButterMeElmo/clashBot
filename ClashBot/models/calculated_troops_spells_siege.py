@@ -21,7 +21,7 @@ class CALCULATEDTROOPSSPELLSSIEGE(Base):
 
     MEMBER = relationship('MEMBER')
 
-# this uses scanned data?
-# or season historical data?
-# to attempt to determine what were actual troops, siege, or spells
-# both donations and received
+# this table contains what we *believe* someone donated/received, roughly
+# includes troops, siege, or spells
+# it will be empty until I come back and re-implement this
+# low priority since season_historical_data gives a good idea of members
