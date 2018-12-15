@@ -1,14 +1,16 @@
 from .meta import *
 
-from ClashBot.models import WAR
 
-class WARATTACK(WAR):
+class WARATTACK(Base):
     __tablename__ = 'WAR_ATTACKS'
     __table_args__ = (
         UniqueConstraint('war_id', 'attacker_tag', 'attacker_attack_number'),
     )
 
-    war_id = Column(ForeignKey('WARS.war_id'), primary_key=True)
+    id = Column(Integer, primary_key=True)
+
+    war_id = Column(ForeignKey('WARS.war_id'))
+    member_tag = Column(ForeignKey('MEMBERS.member_tag'), nullable=True)
     attacker_tag = Column(String(20))
     defender_tag = Column(String(20))
     attacker_attack_number = Column(SmallInteger)
@@ -21,3 +23,9 @@ class WARATTACK(WAR):
     attack_occurred_after = Column(Integer)
     attack_occurred_before = Column(Integer)
     order_number = Column(SmallInteger)
+
+    war = relationship("WAR", backref="war_attack")
+    member = relationship("MEMBER", backref="war_attack")
+
+    # def __str__(self):
+    #     return '{}: {} stars {}% destruction defender:{}'.format(self.war.clan_war_identifier, self.stars, self.destruction_percentage, self.defender_tag)
