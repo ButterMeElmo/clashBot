@@ -4,7 +4,7 @@ import pytest
 
 from unittest import mock
 
-from ClashBot.models import CLAN, MEMBER, SCANNEDDATATIME, SCANNEDDATA
+from ClashBot.models import CLAN, MEMBER, SCANNEDDATATIME, SCANNEDDATA, WAR, ACCOUNTNAME
 from ClashBot import FetchedDataProcessor, DatabaseSetup
 
 from fake_data import test_fetched_data_processor_fake_data
@@ -98,7 +98,7 @@ def test_add_members_to_db_defaults(test_db_session, fetched_data_processor, mem
             'last_updated_time': 2,
         }
         data_time = 3
-        fetched_data_processor.add_member_to_db(data_time, **member_data)
+        fetched_data_processor.add_or_update_member_in_db(data_time, **member_data)
 
     for _ in expected_results:
         tag, name, role, trophies, th_level = member
@@ -116,8 +116,28 @@ def test_add_members_to_db_defaults(test_db_session, fetched_data_processor, mem
 
 
 @pytest.mark.parametrize('member_list', [[
-        ('AWIOFJ','aowen', 'elder', 1523, 12, 1, 1, 1),
-        ('tag here','name here', 'co_leader', 235, 13, 4523645, 1, 0),
+    ('AWIOFJ', 'aowen'),
+    ('tag here', 'name here'),
+    ('tag here', 'new name here')
+]])
+def test_add_account_name_to_db(test_db_session, fetched_data_processor, member_list):
+    expected_results = {}
+    for member_data in member_list:
+        tag, name = member_data
+        if tag in expected_results:
+            expected_results[tag].append(member_data)
+        else:
+            expected_results[tag] = [member_data]
+        fetched_data_processor.add_account_name_to_db(tag, name)
+
+    for tag in expected_results:
+        computed_results = test_db_session.query(ACCOUNTNAME).filter_by(member_tag=tag).all()
+        assert computed_results == expected_results[tag]
+
+
+@pytest.mark.parametrize('member_list', [[
+        ('AWIOFJ', 'aowen', 'elder', 1523, 12, 1, 1, 1),
+        ('tag here', 'name here', 'co_leader', 235, 13, 4523645, 1, 0),
         ('tag here', 'new name here', 'leader', 5007, 1, 4376583, 0, 1)
         ]])
 def test_add_members_to_db(test_db_session, fetched_data_processor, member_list):
@@ -136,7 +156,7 @@ def test_add_members_to_db(test_db_session, fetched_data_processor, member_list)
             'last_updated_time': 2,
         }
         data_time = 3
-        fetched_data_processor.add_member_to_db(data_time, **member_data)
+        fetched_data_processor.add_or_update_member_in_db(data_time, **member_data)
 
     for _ in expected_results:
         tag, name, role, trophies, th_level, last_seen_in_war, in_clan, in_war = member
@@ -151,6 +171,91 @@ def test_add_members_to_db(test_db_session, fetched_data_processor, member_list)
         assert member_results.in_clan_currently == 0
         assert member_results.in_war_currently == 0
         assert member_results.last_updated_time == 2
+
+@pytest.mark.parametrize('war_list', [
+    [
+    # (friendly_tag, enemy_tag, result, friendly_stars, enemy_stars, friendly_percentage, enemy_percentage, friendly_attacks_used, enemy_attacks_used, war_size, prep_day_start, war_day_start, war_day_end),
+        ('#12341235', '#34534634', 'in progress', 15, 16, 60.453, 50.3, 5, 7, 15, 1542087769, 1542087770, 1542087777),
+        ('#tag1', '#tag2', 'loss', 0, 30, 0.0, 100, 0, 10, 20, 234, 300, 400),
+    ],
+    [
+        ('#12341235', '#34534634', 'in progress', 15, 16, 60.453, 50.3, 5, 7, 15, 1542087769, 1542087770, 1542087777),
+        ('#tag1', '#tag2', 'loss', 0, 30, 0.0, 100, 0, 10, 20, 234, 300, 400),
+        ('#12341235', '#34534634', 'win', 18, 17, 75.432, 63.643, 10, 15, 15, 1542087769, 1542087770, 1542087777),
+    ],
+])
+def test_add_wars_to_db(test_db_session, fetched_data_processor, war_list):
+    expected_results = {}
+    for war_entry in war_list:
+        friendly_tag, enemy_tag, result, friendly_stars, enemy_stars, friendly_percentage, enemy_percentage, friendly_attacks_used, enemy_attacks_used, war_size, prep_day_start, war_day_start, war_day_end = war_entry
+
+        war_data = {
+            'friendly_tag': friendly_tag,
+            'enemy_tag': enemy_tag,
+            'result': result,
+            'friendly_stars': friendly_stars,
+            'enemy_stars': enemy_stars,
+            'friendly_percentage': friendly_percentage,
+            'enemy_percentage': enemy_percentage,
+            'friendly_attacks_used': friendly_attacks_used,
+            'enemy_attacks_used': enemy_attacks_used,
+            'war_size': war_size,
+            'prep_day_start': prep_day_start,
+            'war_day_start': war_day_start,
+            'war_day_end': war_day_end,
+        }
+        key = friendly_tag + enemy_tag + str(prep_day_start)
+        expected_results[key] = war_data
+
+        fetched_data_processor.add_or_update_war_to_db(**war_data)
+
+    for war_entry_key in expected_results:
+        war_entry = expected_results[war_entry_key]
+        friendly_tag, enemy_tag, result, friendly_stars, enemy_stars, friendly_percentage, enemy_percentage, friendly_attacks_used, enemy_attacks_used, war_size, prep_day_start, war_day_start, war_day_end = war_entry.values()
+        war_instance = test_db_session.query(WAR).filter_by(prep_day_start=prep_day_start, friendly_tag=friendly_tag, enemy_tag=enemy_tag).first()
+        assert friendly_tag == war_instance.friendly_tag
+        assert enemy_tag == war_instance.enemy_tag
+        assert result == war_instance.result
+        assert friendly_stars == war_instance.friendly_stars
+        assert enemy_stars == war_instance.enemy_stars
+        assert friendly_percentage == war_instance.friendly_percentage
+        assert enemy_percentage == war_instance.enemy_percentage
+        assert friendly_attacks_used == war_instance.friendly_attacks_used
+        assert enemy_attacks_used == war_instance.enemy_attacks_used
+        assert war_size == war_instance.war_size
+        assert prep_day_start == war_instance.prep_day_start
+        assert war_day_start == war_instance.war_day_start
+        assert war_day_end == war_instance.war_day_end
+
+
+
+@pytest.mark.parametrize('timestamps_to_add', [
+    [
+        100,
+    ],
+    [
+        100,
+        200,
+    ],
+    [
+        100,
+        100,
+        200,
+    ],
+])
+def test_add_scanned_data_time_to_db(test_db_session, fetched_data_processor, timestamps_to_add):
+    expected_results = []
+    for timestamp_to_add in timestamps_to_add:
+        if timestamp_to_add not in expected_results:
+            expected_results.append(timestamp_to_add)
+        fetched_data_processor.add_scanned_data_time_to_db(timestamp_to_add)
+
+    scanned_data_times = test_db_session.query(SCANNEDDATATIME).all()
+    assert len(scanned_data_times) == len(expected_results)
+    for scanned_data_time in scanned_data_times:
+        index = scanned_data_time.scanned_data_index
+        time = scanned_data_time.time
+        assert expected_results[index-1] == time
 
 
 @pytest.mark.parametrize('data_entries', [
@@ -178,9 +283,10 @@ def test_add_scanned_data_to_db(test_db_session, fetched_data_processor, data_en
                 print('Data must be entered sequentially. This showing means your test data is bad!!')
                 assert False
             expected_results_time.append(data_time)
+        index = expected_results_time.index(data_time) + 1
 
         scanned_data_kwargs = {
-            'data_time': data_time,
+            'scanned_data_index': index,
             'member_tag': member_tag,
             'troops_donated_monthly': troops_donated_monthly,
             'troops_received_monthly': troops_received_monthly,
@@ -191,7 +297,22 @@ def test_add_scanned_data_to_db(test_db_session, fetched_data_processor, data_en
             'defenses_won': defenses_won,
             'town_hall_level': town_hall_level,
         }
-        fetched_data_processor.add_scanned_data_to_db(**scanned_data_kwargs)
+
+        # need this to not fail foreign constraint checks
+        member_kwargs = {
+            'member_tag': member_tag,
+            'member_name': 'some name',
+            'role': 'admin',
+            'trophies': 0,
+            'town_hall_level': 1,
+            'in_clan_currently': True,
+            'last_updated_time': data_time-1,
+        }
+        fetched_data_processor.add_scanned_data_time_to_db(data_time)
+        # always say this data was newer than the data being inserted
+        fetched_data_processor.add_or_update_member_in_db(data_time, **member_kwargs)
+
+        fetched_data_processor.add_or_update_scanned_data_in_db(**scanned_data_kwargs)
 
     scanned_data_time_instances = test_db_session.query(SCANNEDDATATIME).all()
     assert len(scanned_data_time_instances) == len(expected_results_time)
@@ -221,7 +342,7 @@ def test_add_scanned_data_to_db(test_db_session, fetched_data_processor, data_en
 def test_save_data_executes(test_db_session, fetched_data_processor):
     with mock.patch('ClashBot.FetchedDataProcessor.process_player_achievement_files', autospec=True) as process_player_achievement_files, \
             mock.patch('ClashBot.FetchedDataProcessor.process_clan_war_details_files', autospec=True) as process_clan_war_files_details:
-        fetched_data_processor.save_data(657, "some_dir")
+        fetched_data_processor.save_data_files(657, "some_dir")
         process_player_achievement_files.assert_called_once_with(fetched_data_processor, test_db_session, 657, "some_dir")
         process_clan_war_files_details.assert_called_once_with(fetched_data_processor, test_db_session, 657, "some_dir")
 
@@ -281,12 +402,12 @@ def test_process_player_achievements(test_db_session, fetched_data_processor):
     # need to add data here
     fake_achievements_entry = []
     with mock.patch('ClashBot.FetchedDataProcessor.add_scanned_data_time_to_db', autospec=True) as add_scanned_data_time_to_db, \
-        mock.patch('ClashBot.FetchedDataProcessor.add_scanned_data_to_db', autospec=True) as add_scanned_data_to_db, \
+        mock.patch('ClashBot.FetchedDataProcessor.add_or_update_scanned_data_in_db', autospec=True) as add_scanned_data_to_db, \
         mock.patch('ClashBot.FetchedDataProcessor.add_clan_to_db', autospec=True) as add_clan_to_db, \
         mock.patch('ClashBot.FetchedDataProcessor.add_account_name_to_db', autospec=True) as add_account_name_to_db, \
-        mock.patch('ClashBot.FetchedDataProcessor.add_member_to_db', autospec=True) as add_member_to_db:
+        mock.patch('ClashBot.FetchedDataProcessor.add_or_update_member_in_db', autospec=True) as add_member_to_db:
             fetched_data_processor.process_player_achievements(fake_achievements_entry)
-            add_scanned_data_time_to_DB.assert_called_once_with()
+            add_scanned_data_time_to_db.assert_called_once_with()
             expected_calls_add_scanned_data_to_db = []
             expected_calls_add_clan_to_db = []
             expected_calls_add_account_name_to_db = []
@@ -297,7 +418,7 @@ def test_process_player_achievements(test_db_session, fetched_data_processor):
                 expected_calls_add_clan_to_db.append()
                 expected_calls_add_account_name_to_db.append()
                 expected_calls_add_member_to_db.append()
-            add_scanned_data_time_to_DB.assert_called_once_with()
+            add_scanned_data_time_to_db.assert_called_once_with()
             add_scanned_data_to_db.assert_has_calls(expected_calls_add_scanned_data_to_db)
             add_clan_to_db.assert_has_calls(expected_calls_add_clan_to_db)
             add_account_name_to_db.assert_has_calls(expected_calls_add_account_name_to_db)

@@ -24,7 +24,7 @@ def test_get_utc_datetime(patch_datetime_now, date_fetcher_formatter):
     That function is used widely, so this test is particularly important.
     """
     desired_datetime = datetime.datetime(2025, 12, 25, 1, 5, 55, tzinfo=pytz.utc)
-    calculated_datetime = date_fetcher_formatter.getUTCDateTime()
+    calculated_datetime = date_fetcher_formatter.get_utc_date_time()
     assert desired_datetime == calculated_datetime
 
     desired_timestamp = 1766624755
@@ -40,8 +40,8 @@ def test_basic_get_utc_timestamp(date_fetcher_formatter, date_to_test, expected_
     """
     This tests the get_utc_timestamp method of DateFetcherFormatter with hand calculated output.
     """
-    with mock.patch('ClashBot.DateFetcherFormatter.getUTCDateTime', return_value=date_to_test):
-        assert date_fetcher_formatter.getUTCTimestamp() == expected_output
+    with mock.patch('ClashBot.DateFetcherFormatter.get_utc_date_time', return_value=date_to_test):
+        assert date_fetcher_formatter.get_utc_timestamp() == expected_output
 
 @pytest.mark.parametrize('date_to_test', [
     datetime.datetime(2014, 6, 2, 1, 6, 15, tzinfo=pytz.utc),
@@ -53,8 +53,8 @@ def test_get_utc_timestamp(date_fetcher_formatter, date_to_test):
     """
     This tests the get_utc_timestamp method of DateFetcherFormatter.
     """
-    with mock.patch('ClashBot.DateFetcherFormatter.getUTCDateTime', return_value=date_to_test):
-        assert date_fetcher_formatter.getUTCTimestamp() == int(date_to_test.timestamp())
+    with mock.patch('ClashBot.DateFetcherFormatter.get_utc_date_time', return_value=date_to_test):
+        assert date_fetcher_formatter.get_utc_timestamp() == int(date_to_test.timestamp())
 
 @pytest.mark.parametrize('date_to_test, timestamp, expected_output', [
     (datetime.datetime(2014, 6, 2, 1, 6, 15, tzinfo=pytz.utc), 1401671175, '2014-06-02 01:06:15+00:00')
@@ -65,8 +65,8 @@ def test_basic_turn_utc_timestamp_into_string(date_fetcher_formatter, date_to_te
     """
     This tests the get_pretty_time_string_from_utc_timestamp method of DateFetcherFormatter with hand calculated outputs.
     """
-    with mock.patch('ClashBot.DateFetcherFormatter.getUTCDateTime', return_value=date_to_test):
-        assert date_fetcher_formatter.getPrettyTimeStringFromUTCTimestamp(timestamp) == expected_output
+    with mock.patch('ClashBot.DateFetcherFormatter.get_utc_date_time', return_value=date_to_test):
+        assert date_fetcher_formatter.get_pretty_time_string_from_utc_timestamp(timestamp) == expected_output
 
 @pytest.mark.parametrize('date_to_test', [
     datetime.datetime(2014, 6, 2, 1, 6, 15, tzinfo=pytz.utc),
@@ -78,6 +78,6 @@ def test_turn_utc_timestamp_into_string(date_fetcher_formatter, date_to_test):
     """
     This tests the get_pretty_time_string_from_utc_timestamp method of DateFetcherFormatter.
     """
-    with mock.patch('ClashBot.DateFetcherFormatter.getUTCDateTime', return_value=date_to_test):
+    with mock.patch('ClashBot.DateFetcherFormatter.get_utc_date_time', return_value=date_to_test):
         desired_results = str(datetime.datetime.utcfromtimestamp(date_to_test.timestamp()).replace(tzinfo=pytz.utc))
-        assert date_fetcher_formatter.getPrettyTimeStringFromUTCTimestamp(date_to_test.timestamp()) == desired_results
+        assert date_fetcher_formatter.get_pretty_time_string_from_utc_timestamp(date_to_test.timestamp()) == desired_results

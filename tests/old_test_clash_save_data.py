@@ -291,7 +291,7 @@ process_war_end = datetime.datetime(2018, 6, 2)
 ], indirect=['patch_datetime_now'])
 def test_processWar(db, patch_datetime_now, process_war_start, desired_results):
     cursor = db.cursor()
-    warFileNames = getDataFromServer.getFileNames(
+    warFileNames = getDataFromServer.get_file_names(
         'data/warDetailsLog', '.json', process_war_start.timestamp())
     for filename in warFileNames:
         if os.path.exists(filename):
