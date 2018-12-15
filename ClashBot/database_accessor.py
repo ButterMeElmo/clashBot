@@ -11,8 +11,13 @@ import unittest
 import pytz
 import datetime
 import dateutil
-import getDataFromServer
+import date_fetcher_formatter
 import config_strings
+
+from ClashBot import BasicDBOps, DatabaseSetup, DateFetcherFormatter, MyConfigBot
+from ClashBot.models import DISCORDCLASHLINK, MEMBER, WARATTACK, WAR, DISCORDACCOUNT
+
+from sqlalchemy.sql.expression import func
 
 db_file = "clashData.db"
 #currentSeasonIDs = {}
@@ -21,6 +26,204 @@ db_file = "clashData.db"
 class NoDataDuringTimeSpanException(Exception):
     pass
 
+
+class DatabaseAccessor(BasicDBOps):
+
+    def get_discord_ids_of_members_who_are_th12(self, clan_tag=MyConfigBot.my_clan_tag):
+        discord_clash_links = self.session.query(DISCORDCLASHLINK) \
+                    .join(MEMBER) \
+                    .filter(MEMBER.town_hall_level == 12) \
+                    .filter(MEMBER.clan_tag == clan_tag) \
+                    .all()
+
+        actual_results = set()
+
+        for discord_clan_link in discord_clash_links:
+            print(discord_clan_link.clash_account.member_name)
+            actual_results.add(str(discord_clan_link.discord_tag))
+
+        return actual_results
+
+    def get_timestamps_for_current_war(self):
+        #todo  fix me
+        current_timestamp = DateFetcherFormatter.get_utc_timestamp()
+
+        war_end_time = self.session.query(WAR.war_day_end)\
+            .filter(WAR.war_day_end > current_timestamp).scalar()
+
+        if war_end_time is None:
+            return None
+        else:
+            print('make me sort descending please!')
+            war_end_time = war_end_time
+            hours_remaining_reminder = [3, 1]
+            results = []
+            for hourReminder in hours_remaining_reminder:
+                this_timestamp = war_end_time - (hourReminder * 3600)
+                if this_timestamp > current_timestamp:
+                    time_remaining_string = '{} hours remaining in war!'.format(
+                        hourReminder)
+                    if hourReminder == 1:
+                        time_remaining_string = '{} hour remaining in war!'.format(
+                            hourReminder)
+                    results.append((this_timestamp, time_remaining_string))
+            if len(results) == 0:
+                return None
+            else:
+                return results
+
+    def get_members_in_war_with_attacks_remaining(self, clan_tag):
+
+        war_instance = self.session.query(WAR).order_by(WAR.war_id.desc()).limit(1).first()
+
+        war_attacks_unused = self.session.query(MEMBER.member_name, DISCORDCLASHLINK.discord_tag) \
+            .join(WARATTACK) \
+            .join(DISCORDCLASHLINK) \
+            .filter(WARATTACK.war == war_instance) \
+            .filter(MEMBER.clan_tag == clan_tag) \
+            .filter(WARATTACK.defender_tag == None).all()  # noqa
+
+        pretty_results = {}
+        for entry in war_attacks_unused:
+            member_name = entry[0]
+            discord_id = entry[1]
+            if discord_id not in pretty_results:
+                pretty_results[discord_id] = {}
+            if member_name not in pretty_results[discord_id]:
+                pretty_results[discord_id][member_name] = 0
+            pretty_results[discord_id][member_name] += 1
+
+        return pretty_results
+
+    def link_discord_account(self, discord_identifier, clash_identifier, is_name=False):
+
+        print(clash_identifier)
+        print(is_name)
+
+        member_query = self.session.query(MEMBER)
+        if is_name:
+            member_query = member_query.filter(func.upper(MEMBER.member_name) == clash_identifier)
+        else:
+            # tag
+            member_query = member_query.filter(MEMBER.member_tag == clash_identifier)
+
+        member_instances = member_query.all()
+
+        if len(member_instances) == 0:
+            return config_strings.unable_to_find_account_string
+
+        if len(member_instances) > 1:
+            print('Multiple accounts matched while linking, better fix this')
+
+        member_instance = member_instances[0]
+
+        discord_account_instance = self.session.query(DISCORDACCOUNT)\
+            .filter(DISCORDACCOUNT.discord_tag == discord_identifier).one_or_none()
+
+        if discord_account_instance is None:
+            discord_account_instance = DISCORDACCOUNT()
+            discord_account_instance.is_troop_donator = -1
+            discord_account_instance.discord_tag = discord_identifier
+            discord_account_instance.has_permission_to_set_war_status = False
+            discord_account_instance.time_last_checked_in = DateFetcherFormatter.get_utc_timestamp()
+
+        for clash_links in discord_account_instance.discord_clash_links:
+            if clash_links.clash_account == member_instance:
+                print('This account is already linked, should change this :)')
+                return config_strings.successfully_linked_string
+
+        discord_clash_link = DISCORDCLASHLINK()
+        discord_clash_link.discord_account = discord_account_instance
+        discord_clash_link.clash_account = member_instance
+        discord_clash_link.account_order = len(discord_account_instance.discord_clash_links) + 1
+
+        self.session.add(discord_account_instance)
+
+        return config_strings.successfully_linked_string
+
+    def has_linked_account_with_th_larger_than(self, discord_id, th_level_to_check_for):
+
+        accounts = self.session.query(MEMBER) \
+                            .join(DISCORDCLASHLINK) \
+                            .filter(DISCORDCLASHLINK.discord_tag == discord_id) \
+                            .filter(MEMBER.town_hall_level > th_level_to_check_for) \
+                            .all()
+
+        return len(accounts) > 0
+
+    def has_configured_is_troop_donator(self, discord_id):
+
+        result = self.session.query(DISCORDACCOUNT.is_troop_donator) \
+                .filter(DISCORDACCOUNT.discord_tag == discord_id) \
+                .one_or_none()
+
+        if result == -1:
+            return  False
+        return True
+
+    def get_members_in_clan(self, clan_tag=MyConfigBot.my_clan_tag):
+
+        results = self.session.query(DISCORDACCOUNT) \
+                                    .join(DISCORDCLASHLINK) \
+                                    .join(MEMBER) \
+                                    .filter(MEMBER.clan_tag == clan_tag) \
+                                    .all()
+
+        actual_results = {}
+
+        for discord_account in results:
+            is_troop_donator = 0
+            if discord_account.is_troop_donator == 1:
+                is_troop_donator = 1
+            actual_results[str(discord_account.discord_tag)] = is_troop_donator
+
+        return actual_results
+
+    def get_discord_members_in_war(self):
+        results = self.session.query(DISCORDACCOUNT) \
+            .join(DISCORDCLASHLINK) \
+            .join(MEMBER) \
+            .filter(MEMBER.in_war_currently == 1) \
+            .all()
+
+        actual_results = set()
+
+        for discord_account in results:
+            actual_results.add(str(discord_account.discord_tag))
+
+        return actual_results
+
+    def get_discord_ids_of_members_with_war_permissions(self):
+        results = self.session.query(DISCORDACCOUNT) \
+            .filter(DISCORDACCOUNT.has_permission_to_set_war_status == 1) \
+            .all()
+
+        actual_results = set()
+
+        for discord_account in results:
+            actual_results.add(str(discord_account.discord_tag))
+
+        return actual_results
+
+    def get_all_members_without_discord_as_string(self):
+        result_list = self.get_all_members_without_discord()
+        result_string = ""
+        for entry in result_list:
+            result_string += entry + '\n'
+        return result_string
+
+
+    def get_all_members_without_discord(self, clan_tag=MyConfigBot.my_clan_tag):
+
+        members_in_clan = self.session.query(MEMBER) \
+            .filter(MEMBER.clan_tag == clan_tag).all()
+
+        actual_results = []
+        for member in members_in_clan:
+            if len(member.discord_clash_links) == 0:
+                actual_results.append(member.member_name)
+
+        return actual_results
 
 def getCursorAndConnection():
     conn = sqlite3.connect(db_file)
@@ -78,54 +281,11 @@ def getAllMembersTagSupposedlyInClan(cursor):
     )
     return cursor.fetchall()
 
-
-def get_min_and_max_scanned_index_for_min_and_max_scanned_time(cursor, min_timestamp, max_timestamp):
-    if min_timestamp > 1995812705:
-        raise ValueError('Invalid timestamp, should not be milliseconds')
-    if max_timestamp > 1995812705:
-        raise ValueError('Invalid timestamp, should not be milliseconds')
-    query = '''SELECT scanned_data_index FROM SCANNED_DATA_TIMES WHERE time > ? and time < ?'''
-    cursor.execute(query, (min_timestamp, max_timestamp))
-    results = cursor.fetchall()
-    if len(results) == 0:
-        raise NoDataDuringTimeSpanException()
-    else:
-        min_index = min(results, key=lambda t: t[0])[0]
-        max_index = max(results, key=lambda t: t[0])[0]
-    return min_index, max_index
-
-
-def get_min_index_greater_than_scanned_time(cursor, min_timestamp):
-    if min_timestamp > 1995812705:
-        raise ValueError('Invalid timestamp, should not be milliseconds')
-    query = '''SELECT scanned_data_index FROM SCANNED_DATA_TIMES WHERE time > ?'''
-    cursor.execute(query, (min_timestamp,))
-    results = cursor.fetchall()
-    if len(results) == 0:
-        raise NoDataDuringTimeSpanException()
-    else:
-        min_index = min(results, key=lambda t: t[0])[0]
-    return min_index
-
-
-def get_max_index_less_than_scanned_time(cursor, max_timestamp):
-    if max_timestamp > 1995812705:
-        raise ValueError('Invalid timestamp, should not be milliseconds')
-    query = '''SELECT scanned_data_index FROM SCANNED_DATA_TIMES WHERE time < ?'''
-    cursor.execute(query, (max_timestamp,))
-    results = cursor.fetchall()
-    if len(results) == 0:
-        raise NoDataDuringTimeSpanException()
-    else:
-        max_index = max(results, key=lambda t: t[0])[0]
-    return max_index
-
-
 def removeDiscordAccountsRelatedTo(accountName):
     cursor, conn = getCursorAndConnection()
     changed = 0
 
-    query = '''SELECT discord_tag FROM discord_names WHERE member_tag = (
+    query = '''SELECT discord_tag FROM discord_clash_links WHERE member_tag = (
 			SELECT member_tag FROM MEMBERS WHERE UPPER(member_name) = ?
 			)
 		'''
@@ -133,7 +293,7 @@ def removeDiscordAccountsRelatedTo(accountName):
     discord_tags = cursor.fetchall()
     for discord_tag in discord_tags:
         discord_tag = discord_tag[0]
-        query = '''DELETE FROM discord_names WHERE discord_tag = ?'''
+        query = '''DELETE FROM discord_clash_links WHERE discord_tag = ?'''
         cursor.execute(query, (discord_tag, ))
         changed += cursor.rowcount
         query = '''DELETE FROM discord_properties WHERE discord_tag = ?'''
@@ -353,7 +513,7 @@ def addMemberToWar(member_name):
 		VALUES
 			((SELECT member_tag from MEMBERS WHERE upper(member_name) = ?), ?, ?)
 		'''
-    timestamp = getDataFromServer.getUTCTimestamp()
+    timestamp = getDataFromServer.get_utc_timestamp()
     result = config_strings.success
     print(member_name)
     try:
@@ -379,7 +539,7 @@ def removeMemberFromWar(member_name):
 		VALUES
 			((SELECT member_tag from MEMBERS WHERE upper(member_name) = ?), ?, ?)
 		'''
-    timestamp = getDataFromServer.getUTCTimestamp()
+    timestamp = getDataFromServer.get_utc_timestamp()
     result = config_strings.success
     try:
         cursor.execute(query, (member_name, timestamp,
@@ -438,9 +598,9 @@ def getPastWarPerformanceForMemberName(memberName, number_of_wars):
     memberName = memberName.upper()
     cursor, conn = getCursorAndConnection()
     query = '''
-		SELECT discord_tag FROM discord_names
+		SELECT discord_tag FROM discord_clash_links
 		INNER JOIN MEMBERS
-			ON MEMBERS.member_tag = discord_names.member_tag 
+			ON MEMBERS.member_tag = discord_clash_links.member_tag 
 		WHERE
 			UPPER(MEMBERS.member_name) = UPPER(?)
 		'''
@@ -478,9 +638,9 @@ def getPastWarPerformance(discord_id, number_of_wars):
     # first, get all the tags and member names for every account owned by this discord id
     query = '''
 		SELECT members.member_tag, members.member_name FROM MEMBERS
-		INNER JOIN DISCORD_NAMES ON
-		MEMBERS.member_tag = DISCORD_NAMES.member_tag
-		where DISCORD_NAMES.discord_tag = ?
+		INNER JOIN DISCORD_CLASH_LINKS ON
+		MEMBERS.member_tag = DISCORD_CLASH_LINKS.member_tag
+		where DISCORD_CLASH_LINKS.discord_tag = ?
 		'''
     account_dict = {}
     cursor.execute(query, (int(discord_id),))
@@ -567,69 +727,6 @@ def get_past_war_performance_for_member_tags(member_tag_name_dict, number_of_war
             break
     conn.close()
     return result_dict
-
-
-def linkDiscordAccount(discordIdentifier, clashIdentifier, isName=False):
-    #	conn = sqlite3.connect(db_file)
-    #	print(sqlite3.version)
-    #	cursor = conn.cursor()
-    cursor, conn = getCursorAndConnection()
-    result = "An unexpected error occurred!"
-
-    query = '''
-		INSERT OR REPLACE INTO
-			DISCORD_PROPERTIES (discord_tag, is_troop_donator, has_permission_to_set_war_status, time_last_checked_in)
-		VALUES
-			(
-				?, 
-				COALESCE((SELECT is_troop_donator FROM DISCORD_PROPERTIES WHERE discord_tag = ?), -1),
-				COALESCE((SELECT has_permission_to_set_war_status FROM DISCORD_PROPERTIES WHERE discord_tag = ?), 0),				
-				?
-			)
-		'''
-    cursor.execute(query, (discordIdentifier,
-                           discordIdentifier, discordIdentifier, 0))
-
-    if isName:
-        query = '''
-			INSERT OR REPLACE INTO
-				DISCORD_NAMES (member_tag, discord_tag, account_order)
-			VALUES
-				(
-					(SELECT member_tag FROM MEMBERS WHERE UPPER(member_name) = ?), 
-					?,
-					COALESCE((SELECT account_order FROM DISCORD_NAMES where member_tag = (SELECT member_tag FROM MEMBERS WHERE UPPER(member_name) = ?)), ?)
-				)
-			'''
-    else:
-        query = '''
-			INSERT OR REPLACE INTO
-				DISCORD_NAMES (member_tag, discord_tag, account_order)
-			VALUES
-				(
-					?, 
-					?,
-					COALESCE((SELECT account_order FROM DISCORD_NAMES where member_tag = ?), ?)
-				)
-			'''
-    try:
-        cursor.execute(
-            'SELECT MAX(account_order) FROM DISCORD_NAMES WHERE discord_tag = ?', (discordIdentifier,))
-        results = cursor.fetchone()[0]
-        maxNum = 0
-        if not results == None:
-            maxNum = results
-        cursor.execute(
-            query, (clashIdentifier, discordIdentifier, clashIdentifier, maxNum+1))
-    except sqlite3.IntegrityError as e:
-        result = config_strings.unable_to_find_account_string
-    rowCount = cursor.rowcount
-    conn.commit()
-    conn.close()
-    if rowCount == 1:
-        result = config_strings.successfully_linked_string
-    return result
-
 
 def getIneligibleForClanGames(thLevelRequired=6):
     cursor, conn = getCursorAndConnection()
@@ -811,7 +908,7 @@ def getMembersWithScoreUnderThreshold(threshold, extraRequiredPerAccount=200):
         tag = entry[1]
         score = entry[3]
         query = '''
-			SELECT discord_tag FROM DISCORD_NAMES
+			SELECT discord_tag FROM DISCORD_CLASH_LINKS
 			WHERE 
 				member_tag = ?
 			'''
@@ -868,52 +965,14 @@ def getMembersWithScoreUnderThreshold(threshold, extraRequiredPerAccount=200):
     print(result)
     return result
 
-
-def hasLinkedAccountWithTHLargerThan(discordID, thLevelToCheckFor):
-    cursor, conn = getCursorAndConnection()
-    query = '''
-		SELECT MEMBERS.member_name
-		FROM MEMBERS
-		INNER JOIN 
-		DISCORD_NAMES ON
-		DISCORD_NAMES.member_tag = MEMBERS.member_tag
-		WHERE
-		MEMBERS.town_hall_level >= ?
-		AND
-		DISCORD_NAMES.discord_tag = ?
-		'''
-    cursor.execute(query, (thLevelToCheckFor, discordID))
-    results = cursor.fetchall()
-    if len(results) > 0:
-        return True
-    return False
-
-
-def hasConfiguredIsTroopDonator(discordID):
-    cursor, conn = getCursorAndConnection()
-    query = '''
-		SELECT is_troop_donator
-		FROM 
-		DISCORD_PROPERTIES
-		WHERE
-		discord_tag = ?
-		'''
-    cursor.execute(query, (discordID,))
-    result = cursor.fetchone()[0]
-    if result == -1:
-        # not configured yet
-        return False
-    return True
-
-
 def getAllLinkedAccountsList():
     cursor, conn = getCursorAndConnection()
     query = '''
-		SELECT MEMBERS.member_name, DISCORD_NAMES.discord_tag
+		SELECT MEMBERS.member_name, DISCORD_CLASH_LINKS.discord_tag
 		FROM MEMBERS
 		INNER JOIN 
-		DISCORD_NAMES ON
-		DISCORD_NAMES.member_tag = MEMBERS.member_tag
+		DISCORD_CLASH_LINKS ON
+		DISCORD_CLASH_LINKS.member_tag = MEMBERS.member_tag
 		'''
     cursor.execute(query)
     data = cursor.fetchall()
@@ -940,14 +999,14 @@ def getLinkedAccountsList(discordID, currently_in_clan_required=False):
 		SELECT MEMBERS.member_name
 		FROM 
 			MEMBERS
-		INNER JOIN DISCORD_NAMES
-			ON DISCORD_NAMES.member_tag = MEMBERS.member_tag
+		INNER JOIN DISCORD_CLASH_LINKS
+			ON DISCORD_CLASH_LINKS.member_tag = MEMBERS.member_tag
 		WHERE
-			DISCORD_NAMES.discord_tag = ?		
+			DISCORD_CLASH_LINKS.discord_tag = ?		
 		'''
     if currently_in_clan_required:
         query += " AND MEMBERS.in_clan_currently = 1"
-    query += " ORDER BY DISCORD_NAMES.account_order"
+    query += " ORDER BY DISCORD_CLASH_LINKS.account_order"
 
     cursor.execute(query, (discordID,))
     accountResults = cursor.fetchall()
@@ -957,7 +1016,7 @@ def getLinkedAccountsList(discordID, currently_in_clan_required=False):
 		WHERE
 			discord_tag = ?
 		'''
-    cursor.execute(query, (getDataFromServer.getUTCTimestamp(), discordID, ))
+    cursor.execute(query, (getDataFromServer.get_utc_timestamp(), discordID,))
 
     for i in range(0, len(accountResults)):
         accountResults[i] = accountResults[i][0]
@@ -1045,9 +1104,9 @@ def undoWarChange(changeNumber):
 def getClanGamesResultsForMemberName(memberName):
     cursor, conn = getCursorAndConnection()
     query = '''
-		SELECT discord_tag FROM discord_names
+		SELECT discord_tag FROM discord_clash_links
 		INNER JOIN MEMBERS
-			ON MEMBERS.member_tag = discord_names.member_tag 
+			ON MEMBERS.member_tag = discord_clash_links.member_tag 
 		WHERE
 			UPPER(MEMBERS.member_name) = UPPER(?)
 		'''
@@ -1095,11 +1154,11 @@ def getClanGamesResultsFor(discordID):
 		FROM MEMBERS			
 		INNER JOIN CLAN_GAMES_SCORE
 			ON CLAN_GAMES_SCORE.member_tag = MEMBERS.member_tag
-		INNER JOIN DISCORD_NAMES
-			ON DISCORD_NAMES.member_tag = MEMBERS.member_tag
+		INNER JOIN DISCORD_CLASH_LINKS
+			ON DISCORD_CLASH_LINKS.member_tag = MEMBERS.member_tag
 		WHERE
-			DISCORD_NAMES.discord_tag = ?
-		ORDER BY CLAN_GAMES_SCORE.clan_games_ID, DISCORD_NAMES.account_order, MEMBERS.member_name
+			DISCORD_CLASH_LINKS.discord_tag = ?
+		ORDER BY CLAN_GAMES_SCORE.clan_games_ID, DISCORD_CLASH_LINKS.account_order, MEMBERS.member_name
 		''', (discordID,))
     results = cursor.fetchall()
 
@@ -1152,97 +1211,6 @@ def setTroopDonator(discordID, val):
     conn.close()
     return result
 
-
-def getMembersInClan():
-    cursor, conn = getCursorAndConnection()
-    cursor.execute(
-        '''
-		SELECT DISCORD_NAMES.discord_tag, DISCORD_PROPERTIES.is_troop_donator
-		FROM DISCORD_NAMES
-		INNER JOIN MEMBERS
-			ON DISCORD_NAMES.member_tag = MEMBERS.member_tag
-		INNER JOIN DISCORD_PROPERTIES
-			ON DISCORD_NAMES.discord_tag = DISCORD_PROPERTIES.discord_tag
-		WHERE
-			MEMBERS.in_clan_currently = 1
-		'''
-    )
-    results = cursor.fetchall()
-
-    actualResults = {}
-
-    for result in results:
-        isTroopDonator = False
-        if result[1]:
-            isTroopDonator = True
-        actualResults[str(result[0])] = isTroopDonator
-
-    return actualResults
-
-
-def getDiscordMembersInWar():
-    cursor, conn = getCursorAndConnection()
-    cursor.execute(
-        '''
-		SELECT DISCORD_NAMES.discord_tag
-		FROM DISCORD_NAMES
-		INNER JOIN MEMBERS
-			ON DISCORD_NAMES.member_tag = MEMBERS.member_tag
-		WHERE
-			MEMBERS.in_war_currently = 1
-		'''
-    )
-    results = cursor.fetchall()
-    conn.close()
-    actualResults = set()
-
-    for result in results:
-        actualResults.add(str(result[0]))
-
-    return actualResults
-
-
-def getDiscordIDsOfMembersWithWarPermissions():
-    cursor, conn = getCursorAndConnection()
-    cursor.execute(
-        '''
-		SELECT discord_tag
-		FROM DISCORD_PROPERTIES
-		WHERE
-			has_permission_to_set_war_status = 1
-		'''
-    )
-    results = cursor.fetchall()
-    conn.close()
-    actualResults = set()
-
-    for result in results:
-        actualResults.add(str(result[0]))
-
-    return actualResults
-
-
-def getDiscordIDsOfMembersWhoAreTH12():
-    cursor, conn = getCursorAndConnection()
-    query = '''SELECT DISCORD_NAMES.discord_tag
-		FROM DISCORD_NAMES
-		INNER JOIN MEMBERS
-			ON DISCORD_NAMES.member_tag = MEMBERS.member_tag
-		WHERE
-			MEMBERS.in_clan_currently = 1
-		AND
-			MEMBERS.town_hall_level = 12'''
-    cursor.execute(query)
-    results = cursor.fetchall()
-    conn.close()
-    actualResults = set()
-
-    for result in results:
-        actualResults.add(str(result[0]))
-
-    return actualResults
-
-
 def getMembersInWarWithoutDiscordAsString():
     resultList = getMembersInWarWithoutDiscord()
     resultString = ""
@@ -1264,8 +1232,8 @@ def getMembersInWarWithoutDiscord():
 			(
 				SELECT MEMBERS.member_name
 				FROM MEMBERS
-				INNER JOIN DISCORD_NAMES
-					ON MEMBERS.member_tag = DISCORD_NAMES.member_tag
+				INNER JOIN DISCORD_CLASH_LINKS
+					ON MEMBERS.member_tag = DISCORD_CLASH_LINKS.member_tag
 				WHERE
 					MEMBERS.in_war_currently = 1
 			)
@@ -1280,56 +1248,17 @@ def getMembersInWarWithoutDiscord():
 
     return actualResults
 
-
-def getAllMembersWithoutDiscordAsString():
-    resultList = getAllMembersWithoutDiscord()
-    resultString = ""
-    for entry in resultList:
-        resultString += entry + '\n'
-    return resultString
-
-
-def getAllMembersWithoutDiscord():
-    cursor, conn = getCursorAndConnection()
-    cursor.execute(
-        '''
-		SELECT MEMBERS.member_name
-		FROM MEMBERS
-		WHERE 
-			MEMBERS.in_clan_currently = 1
-
-		AND MEMBERS.member_name NOT IN
-			(
-				SELECT MEMBERS.member_name
-				FROM MEMBERS
-				INNER JOIN DISCORD_NAMES
-					ON MEMBERS.member_tag = DISCORD_NAMES.member_tag
-				WHERE
-					MEMBERS.in_clan_currently = 1
-			)
-		'''
-    )
-    results = cursor.fetchall()
-    conn.close()
-    actualResults = []
-
-    for result in results:
-        actualResults.append(result[0])
-
-    return actualResults
-
-
 def getAccountsWhoGetGiftReminders(currentDateTime):
     # discordID, accountName, ensure they're in the clan still and wants to get notifications
     cursor, conn = getCursorAndConnection()
     currentWeekDay = currentDateTime.weekday()
     currentHour = currentDateTime.hour
     query = '''
-			SELECT MEMBERS.member_name, DISCORD_NAMES.discord_tag
+			SELECT MEMBERS.member_name, DISCORD_CLASH_LINKS.discord_tag
 			FROM MEMBERS
-			INNER JOIN DISCORD_NAMES
+			INNER JOIN DISCORD_CLASH_LINKS
 			ON
-				DISCORD_NAMES.member_tag = MEMBERS.member_tag
+				DISCORD_CLASH_LINKS.member_tag = MEMBERS.member_tag
 			WHERE
 				MEMBERS.in_clan_currently = 1
 			AND
@@ -1364,7 +1293,7 @@ def setMemberFreeGiftDayAndTime(memberName, dayOfWeek, hourToRemindAt, discordID
 		WHERE
 			member_name = ?
 		AND
-			member_tag in (SELECT member_tag FROM DISCORD_NAMES WHERE discord_tag = ?)
+			member_tag in (SELECT member_tag FROM DISCORD_CLASH_LINKS WHERE discord_tag = ?)
 		'''
     print(memberName)
     print(discordID)
@@ -1382,44 +1311,12 @@ def setMemberFreeGiftDayAndTime(memberName, dayOfWeek, hourToRemindAt, discordID
     return result
 
 
-def getTimestampsForCurrentWar():
-    currentWarID = None
-    currentTimestamp = getDataFromServer.getUTCTimestamp()
-    cursor, conn = getCursorAndConnection()
-    query = '''
-			SELECT war_day_end FROM WARS
-			WHERE war_day_end > ?
-			'''
-    cursor.execute(query, (currentTimestamp,))
-    warEndTime = cursor.fetchone()
-    if warEndTime == None:
-        return None
-    else:
-        print('make me sort descending please!')
-        warEndTime = warEndTime[0]
-        hoursRemainingReminder = [3, 1]
-        results = []
-        for hourReminder in hoursRemainingReminder:
-            thisTimestamp = warEndTime - (hourReminder * 3600)
-            if thisTimestamp > currentTimestamp:
-                timeRemainingString = '{} hours remaining in war!'.format(
-                    hourReminder)
-                if hourReminder == 1:
-                    timeRemainingString = '{} hour remaining in war!'.format(
-                        hourReminder)
-                results.append((thisTimestamp, timeRemainingString))
-        if len(results) == 0:
-            return None
-        else:
-            return results
-
-
 def getDiscordIDForAccountName(accountName):
     cursor, conn = getCursorAndConnection()
-    query = '''SELECT DISCORD_NAMES.discord_tag
-		FROM DISCORD_NAMES
+    query = '''SELECT DISCORD_CLASH_LINKS.discord_tag
+		FROM DISCORD_CLASH_LINKS
 		INNER JOIN MEMBERS
-		ON MEMBERS.member_tag = DISCORD_NAMES.member_tag
+		ON MEMBERS.member_tag = DISCORD_CLASH_LINKS.member_tag
 		WHERE UPPER(member_name) = ?
 		'''
     cursor.execute(query, (accountName, ))
@@ -1455,35 +1352,6 @@ def verifyAccountExists(memberName):
     conn.close()
     return len(results)
 
-
-def getMembersInWarWithAttacksRemaining():
-    cursor, conn = getCursorAndConnection()
-    query = '''
-			SELECT MEMBERS.member_name, DISCORD_NAMES.discord_tag
-			FROM MEMBERS
-			INNER JOIN WAR_ATTACKS 
-			ON WAR_ATTACKS.attacker_tag = MEMBERS.member_tag
-			INNER JOIN DISCORD_NAMES
-			ON DISCORD_NAMES.member_tag = MEMBERS.member_tag
-			WHERE 
-				WAR_ATTACKS.war_id = (SELECT MAX(war_id) FROM WARS)
-			AND
-				order_number IS NULL
-			'''
-    cursor.execute(query)
-    results = cursor.fetchall()
-    prettyResults = {}
-    for entry in results:
-        member_name = entry[0]
-        discordID = entry[1]
-        if not discordID in prettyResults:
-            prettyResults[discordID] = {}
-        if not member_name in prettyResults[discordID]:
-            prettyResults[discordID][member_name] = 0
-        prettyResults[discordID][member_name] += 1
-
-    conn.close()
-    return prettyResults
 
 def getMembersWithPoorWarPerformance():
     cursor, conn = getCursorAndConnection()
@@ -1589,4 +1457,9 @@ if __name__ == "__main__":
     #	result = getMembersFromLastWar()
     #result = getMembersWithScoreUnderThreshold(300)
     #print(result)
-    getMembersWithPoorWarPerformance()
+    # getMembersWithPoorWarPerformance()
+    db_path = "clashData.db"
+    db_session = DatabaseSetup.get_session(engine_string="sqlite:///" + db_path)
+    db_accessor = DatabaseAccessor(db_session)
+    result = db_accessor.get_all_members_without_discord()
+    print(result)

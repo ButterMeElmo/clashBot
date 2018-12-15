@@ -1,18 +1,21 @@
 import datetime
 import pytz
-import time
+
 
 class DateFetcherFormatter:
 
-    def getUTCDateTime(self):
+    @staticmethod
+    def get_utc_date_time():
         date = datetime.datetime.utcnow()
         counter_aware_utc_dt = date.replace(tzinfo=pytz.utc)
         return counter_aware_utc_dt
 
-    def getUTCTimestamp(self):
-        return int(self.getUTCDateTime().timestamp())
+    @staticmethod
+    def get_utc_timestamp():
+        return int(DateFetcherFormatter.get_utc_date_time().timestamp())
 
-    def getPrettyTimeStringFromUTCTimestamp(self, timestamp):
+    @staticmethod
+    def get_pretty_time_string_from_utc_timestamp(timestamp):
         date = datetime.datetime.utcfromtimestamp(timestamp)
         counter_aware_utc_dt = date.replace(tzinfo=pytz.utc)
         return str(counter_aware_utc_dt)

@@ -57,8 +57,8 @@ On your initial setup, you need to have two sets of data.
 So:
 
 ```
-python3 getDataFromServer.py
-python3 getDataFromServer.py
+python3 get_data_from_server.py
+python3 get_data_from_server.py
 ```
 
 Then, you need to save it. There is currently an error on the first save when there is limited data, so run the save function twice.

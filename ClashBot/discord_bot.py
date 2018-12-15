@@ -2,437 +2,432 @@
 
 import discord
 import asyncio
-import getDataFromServer
 import time
 import datetime
 import pytz
 from discord.ext import commands
 #import clashWebServer
-import clashSaveData
-import clashAccessData
-import config_bot
+from ClashBot import FetchedDataProcessor, DatabaseAccessor, DateFetcherFormatter, MyConfigBot, SupercellDataFetcher, DatabaseSetup
+from my_help_formatter import MyHelpFormatter, _default_help_command
+# import clashAccessData
+# import MyConfigBot
 import config_strings
 import config_options
-from MyHelpFormatter import MyHelpFormatter, _default_help_command
-import clashConvertDataToString
+# from MyHelpFormatter import , _default_help_command
+import clash_convert_data_to_string
 import json
 
 # make this come from config
-botChannelID = config_bot.testingChannelID
+botChannelID = MyConfigBot.testingChannelID
 
-#discordClient = discord.Client()
-#discordClient = commands.Bot(command_prefix='!')
-
-discordClient = commands.Bot(command_prefix='!', formatter=MyHelpFormatter())
-discordClient.remove_command('help')
-discordClient.command(**discordClient.help_attrs)(_default_help_command)
+discord_client = commands.Bot(command_prefix='!', formatter=MyHelpFormatter())
+discord_client.remove_command('help')
+discord_client.command(**discord_client.help_attrs)(_default_help_command)
 
 server = None
 
-leader_nickname = config_bot.leader_nickname
+leader_nickname = MyConfigBot.leader_nickname
 
+data_fetcher = SupercellDataFetcher()
+fetched_data_processor = FetchedDataProcessor(data_directory=MyConfigBot.testing_data_dir)
+database_accessor = DatabaseAccessor()
 
-@discordClient.event
+@discord_client.event
 async def on_member_join(member):
     """Says when a member joined."""
     msg = 'Hi {0.mention}! Please set up your account by typing: !start (including the exclamation point)'.format(
         member)
-    generalChannel = discordClient.get_channel(config_bot.generalChannelID)
-#	botChannel = discordClient.get_channel(config_bot.testingChannelID)
-    await discordClient.send_message(generalChannel, msg)
+    general_channel = discord_client.get_channel(MyConfigBot.generalChannelID)
+    # botChannel = discord_client.get_channel(MyConfigBot.testingChannelID)
+    await discord_client.send_message(general_channel, msg)
 
 
-@discordClient.event
+@discord_client.event
 async def on_member_remove(member):
     """Says when a member leaves/was kicked."""
     msg = '{0.mention} has left the server'.format(member)
-#	generalChannel = discordClient.get_channel(config_bot.generalChannelID)
-    botChannel = discordClient.get_channel(config_bot.testingChannelID)
-    await discordClient.send_message(botChannel, msg)
+    # generalChannel = discord_client.get_channel(MyConfigBot.generalChannelID)
+    bot_channel = discord_client.get_channel(MyConfigBot.testingChannelID)
+    await discord_client.send_message(bot_channel, msg)
 
 # @commandBot.command(name='test')
 
 
-@discordClient.command(pass_context=True, description='This is a sample description.', brief='Easy way to test notifications or if the bot is up', hidden=True)
+@discord_client.command(pass_context=True, description='This is a sample description.', brief='Easy way to test notifications or if the bot is up', hidden=True)
 async def test(ctx):
-    discordID = ctx.message.author.id
-    info = await discordClient.get_user_info(discordID)
-    await discordClient.say('Hi ' + info.mention)
+    discord_id = ctx.message.author.id
+    info = await discord_client.get_user_info(discord_id)
+    await discord_client.say('Hi ' + info.mention)
 
 
-@discordClient.command(name='fetch', pass_context=True)
+@discord_client.command(name='fetch', pass_context=True)
 @commands.has_role("developers")
 async def fetch(ctx):
-    await discordClient.say('Working on it...')
-    timeChecking = addTimeToCheck()
-    while lastUpdatedData < timeChecking:
+    await discord_client.say('Working on it...')
+    time_checking = add_time_to_check()
+    while fetched_data_processor.previous_processed_time_instance.time < time_checking:
         await asyncio.sleep(1)
 
 
-@discordClient.command(pass_context=True)
+@discord_client.command(pass_context=True)
 @commands.has_role("developers")
 async def save(ctx):
-    clashSaveData.saveData()
-    await discordClient.say('Saved')
+    fetched_data_processor.save_data()
+    await discord_client.say('Saved')
 
 
-@discordClient.command(pass_context=True)
+@discord_client.command(pass_context=True)
 @commands.has_role("developers")
 async def error(ctx):
     raise ValueError('Some error!')
-    await discordClient.say('Threw error?')
+    await discord_client.say('Threw error?')
 
 
 class AccountManagement:
 
     @commands.command(name='removeaccountsrelatedto', pass_context=True,  brief='Set a reminder to collect your free gifts')
     @commands.has_role("developers")
-    async def removeDiscordAccountsRelatedTo(self, ctx, *, accountName):
-        accountName = accountName.upper()
-        results = clashAccessData.removeDiscordAccountsRelatedTo(accountName)
-        await discordClient.say('{} removed.'.format(results))
+    async def remove_discord_accounts_related_to(self, ctx, *, account_name):
+        account_name = account_name.upper()
+        results = clashAccessData.remove_discord_accounts_related_to(account_name)
+        await discord_client.say('{} removed.'.format(results))
 
     @commands.command(name='setgiftreminder', pass_context=True,  brief='Set a reminder to collect your free gifts')
     @commands.has_role("developers")
-    async def setGiftReminder(self, ctx):
+    async def set_gift_reminder(self, ctx):
         """Once a week, the trader brings a free potion for you. On that day, run this command, and then clashBot will remind you each week to collect the free potion!"""
-        discordID = ctx.message.author.id
-        dt = getDataFromServer.getUTCDateTime()
-        dayOfWeek = dt.weekday()
+        discord_id = ctx.message.author.id
+        dt = DateFetcherFormatter.get_utc_date_time()
+        day_of_week = dt.weekday()
         hour = dt.hour
 
-        accounts = clashAccessData.getLinkedAccountsList(discordID)
+        accounts = clashAccessData.getLinkedAccountsList(discord_id)
 
         if len(accounts) == 0:
-            await discordClient.say('you must link accounts first!')
+            await discord_client.say('you must link accounts first!')
         else:
 
-            await discordClient.say('Which accounts got free gifts today?')
+            await discord_client.say('Which accounts got free gifts today?')
             for i in range(len(accounts)):
                 account = accounts[i]
-                message = await discordClient.say('{}) {}\n'.format(i+1, account))
+                message = await discord_client.say('{}) {}\n'.format(i + 1, account))
 
                 async def waitForResult(account, message, ctx):
-                    await discordClient.add_reaction(message, config_strings.checkmark)
-                    await discordClient.add_reaction(message, config_strings.xmark)
+                    await discord_client.add_reaction(message, config_strings.checkmark)
+                    await discord_client.add_reaction(message, config_strings.xmark)
 
-                    result = await discordClient.wait_for_reaction([config_strings.checkmark, config_strings.xmark], message=message, user=ctx.message.author)
+                    result = await discord_client.wait_for_reaction([config_strings.checkmark, config_strings.xmark], message=message, user=ctx.message.author)
                     if result.reaction.emoji == config_strings.checkmark:
-                        resultStringTemp = clashAccessData.setMemberFreeGiftDayAndTime(
-                            account, dayOfWeek, hour, discordID)
-                        if resultStringTemp == config_strings.success:
-                            resultString = 'Set gift reminder for {}.'.format(
+                        result_string_temp = clashAccessData.setMemberFreeGiftDayAndTime(
+                            account, day_of_week, hour, discord_id)
+                        if result_string_temp == config_strings.success:
+                            result_string = 'Set gift reminder for {}.'.format(
                                 account)
                         else:
-                            resultString = 'Failed to set gift reminder for {}.'.format(
+                            result_string = 'Failed to set gift reminder for {}.'.format(
                                 account)
-                        await discordClient.send_message(ctx.message.channel, resultString)
+                        await discord_client.send_message(ctx.message.channel, result_string)
 
-                discordClient.loop.create_task(
+                discord_client.loop.create_task(
                     waitForResult(account, message, ctx))
 
     @commands.command(name='start', pass_context=True,  brief='Connect your discord to a clash account')
     async def start(self, ctx):
-        messageToSay = "Hi!\nI\'m clashBot and I am going to help you connect your Clash of Clans account to discord.\nSometimes, I\'ll ask you questions. Usually, you'll type a response, but sometimes I will let you hit a check ({}) for yes or an x ({}) for no. Sound good?".format(
+        message_to_say = "Hi!\nI\'m clashBot and I am going to help you connect your Clash of Clans account to discord.\nSometimes, I\'ll ask you questions. Usually, you'll type a response, but sometimes I will let you hit a check ({}) for yes or an x ({}) for no. Sound good?".format(
             config_strings.checkmark, config_strings.xmark)
-        message = await discordClient.say(messageToSay)
-        await discordClient.add_reaction(message, config_strings.checkmark)
-        await discordClient.add_reaction(message, config_strings.xmark)
-        result = await discordClient.wait_for_reaction([config_strings.checkmark, config_strings.xmark], message=message, user=ctx.message.author)
-        hitCheck = (result.reaction.emoji == config_strings.checkmark)
-        if hitCheck:
-            await discordClient.say('Great! Let\'s link your accounts now.')
-            await account_management_cog.linkAccountsBeta.callback(self, ctx)
+        message = await discord_client.say(message_to_say)
+        await discord_client.add_reaction(message, config_strings.checkmark)
+        await discord_client.add_reaction(message, config_strings.xmark)
+        result = await discord_client.wait_for_reaction([config_strings.checkmark, config_strings.xmark], message=message, user=ctx.message.author)
+        hit_check = (result.reaction.emoji == config_strings.checkmark)
+        if hit_check:
+            await discord_client.say('Great! Let\'s link your accounts now.')
+            await account_management_cog.link_accounts_beta.callback(self, ctx)
         else:
-            await discordClient.say('Ok, well since you hit the x, please let {} know what your problem with this is.'.format(leader_nickname))
+            await discord_client.say('Ok, well since you hit the x, please let {} know what your problem with this is.'.format(leader_nickname))
 
     @commands.command(name='linkmemberaccount', pass_context=True,  brief='Connect your discord to a clash account')
     @commands.has_role("developers")
-    async def linkAccountsForMember(self, ctx):
-        await discordClient.say('Whose account would you like to link?')
-        message = await discordClient.wait_for_message(author=ctx.message.author)
+    async def link_accounts_for_member(self, ctx):
+        await discord_client.say('Whose account would you like to link?')
+        message = await discord_client.wait_for_message(author=ctx.message.author)
         if len(message.mentions) > 0:
-            discordID = message.mentions[0].id
-            await account_management_cog.linkAccountsBeta.callback(self, ctx, discordID)
-            await account_management_cog.checkLinkedAccounts.callback(self, ctx, discordID)
+            discord_id = message.mentions[0].id
+            await account_management_cog.link_accounts_beta.callback(self, ctx, discord_id)
+            await account_management_cog.check_linked_accounts.callback(self, ctx, discord_id)
         else:
-            await discordClient.say('Failed to find the mention')
+            await discord_client.say('Failed to find the mention')
 
     @commands.command(name='linkmyaccount', pass_context=True,  brief='Connect your discord to a clash account')
-    async def linkAccountsBeta(self, ctx, discordID=None):
+    async def link_accounts_beta(self, ctx, discord_id=None):
         """Link your Clash accounts to your discord account"""
         print('starting link')
-        if discordID == None:
-            discordID = ctx.message.author.id
-        moreAccountsToAdd = True
-        successfulAccounts = 0
+        if discord_id is None:
+            discord_id = ctx.message.author.id
+        more_accounts_to_add = True
+        successful_accounts = 0
         has_checked_if_should_refresh = False
-        while moreAccountsToAdd == True:
-            await discordClient.say(' \n\nPlease enter your clash account name:')
-            message = await discordClient.wait_for_message(author=ctx.message.author)
-            memberName = message.content.upper()
-            result = clashAccessData.linkDiscordAccount(
-                discordID, memberName, isName=True)
-            await discordClient.say(result)
+        while more_accounts_to_add == True:
+            await discord_client.say(' \n\nPlease enter your clash account name:')
+            message = await discord_client.wait_for_message(author=ctx.message.author)
+            member_name = message.content.upper()
+            result = database_accessor.link_discord_account(discord_id, member_name, is_name=True)
+            await discord_client.say(result)
             if result == config_strings.successfully_linked_string:
-                successfulAccounts += 1
-                message = await discordClient.say("Do you have more clash accounts to add?\n")
-                await discordClient.add_reaction(message, config_strings.checkmark)
-                await discordClient.add_reaction(message, config_strings.xmark)
-                result = await discordClient.wait_for_reaction([config_strings.checkmark, config_strings.xmark], message=message, user=ctx.message.author)
-                moreAccountsToAdd = (
+                successful_accounts += 1
+                message = await discord_client.say("Do you have more clash accounts to add?\n")
+                await discord_client.add_reaction(message, config_strings.checkmark)
+                await discord_client.add_reaction(message, config_strings.xmark)
+                result = await discord_client.wait_for_reaction([config_strings.checkmark, config_strings.xmark], message=message, user=ctx.message.author)
+                more_accounts_to_add = (
                     result.reaction.emoji == config_strings.checkmark)
             elif result == config_strings.unable_to_find_account_string:
                 hit_check = False
                 if has_checked_if_should_refresh == False:
-                    message = await discordClient.say("Was this account added to the clan in the last hour?")
-                    await discordClient.add_reaction(message, config_strings.checkmark)
-                    await discordClient.add_reaction(message, config_strings.xmark)
-                    result = await discordClient.wait_for_reaction([config_strings.checkmark, config_strings.xmark], message=message, user=ctx.message.author)
+                    message = await discord_client.say("Was this account added to the clan in the last hour?")
+                    await discord_client.add_reaction(message, config_strings.checkmark)
+                    await discord_client.add_reaction(message, config_strings.xmark)
+                    result = await discord_client.wait_for_reaction([config_strings.checkmark, config_strings.xmark], message=message, user=ctx.message.author)
                     hit_check = (result.reaction.emoji ==
                                  config_strings.checkmark)
                     has_checked_if_should_refresh = True
                 if hit_check:
                     # force data update
-                    await discordClient.say("Please wait while I refresh my data on the clan!")
-                    timeChecking = addTimeToCheck()
-                    while lastUpdatedData < timeChecking:
+                    await discord_client.say("Please wait while I refresh my data on the clan!")
+                    time_checking = add_time_to_check()
+                    while fetched_data_processor.previous_processed_time_instance.time < time_checking:
                         await asyncio.sleep(1)
-                    await discordClient.say("Data has been refreshed. Enter the account name again in a moment when prompted.")
+                    await discord_client.say("Data has been refreshed. Enter the account name again in a moment when prompted.")
                 else:
-                    message = await discordClient.say("Do you want to try entering this account again? If you cannot find this account, please ask {}.".format(leader_nickname))
-                    await discordClient.add_reaction(message, config_strings.checkmark)
-                    await discordClient.add_reaction(message, config_strings.xmark)
-                    result = await discordClient.wait_for_reaction([config_strings.checkmark, config_strings.xmark], message=message, user=ctx.message.author)
+                    message = await discord_client.say("Do you want to try entering this account again? If you cannot find this account, please ask {}.".format(leader_nickname))
+                    await discord_client.add_reaction(message, config_strings.checkmark)
+                    await discord_client.add_reaction(message, config_strings.xmark)
+                    result = await discord_client.wait_for_reaction([config_strings.checkmark, config_strings.xmark], message=message, user=ctx.message.author)
                     hit_check = (result.reaction.emoji ==
                                  config_strings.checkmark)
                     if not hit_check:
                         # no desire to continute
 
-                        if successfulAccounts > 0:
-                            moreAccountsToAdd = False
+                        if successful_accounts > 0:
+                            more_accounts_to_add = False
                         else:
-                            await discordClient.say("Please let {} know that you were unable to resolve your issue.\n".format(leader_nickname))
+                            await discord_client.say("Please let {} know that you were unable to resolve your issue.\n".format(leader_nickname))
                             return
             else:
-                await discordClient.say("Please restart this command with !linkmyaccount\n")
+                await discord_client.say("Please restart this command with !linkmyaccount\n")
                 return
 
         # check if linked accounts contain one above TH 8
-        allowedToDonate = clashAccessData.hasLinkedAccountWithTHLargerThan(
-            discordID, config_options.minTHRequiredToBeADonator)
+        allowed_to_donate = database_accessor.has_linked_account_with_th_larger_than(discord_id, config_options.minTHRequiredToBeADonator-1)
 
-        if allowedToDonate:
+        if allowed_to_donate:
 
-            hasConfiguredIsTroopDonator = clashAccessData.hasConfiguredIsTroopDonator(
-                discordID)
+            has_configured_is_troop_donator = database_accessor.has_configured_is_troop_donator(discord_id)
 
-            if not hasConfiguredIsTroopDonator:
-                message = await discordClient.say("Now that you have linked your account(s), would you like to become a troop donator? This means that during war, when people use the @troopdonator tag, you'll get a notification from discord, asking for troops.\n")
-                await discordClient.add_reaction(message, config_strings.checkmark)
-                await discordClient.add_reaction(message, config_strings.xmark)
-                result = await discordClient.wait_for_reaction([config_strings.checkmark, config_strings.xmark], message=message, user=ctx.message.author)
+            if not has_configured_is_troop_donator:
+                message = await discord_client.say("Now that you have linked your account(s), would you like to become a troop donator? This means that during war, when people use the @troopdonator tag, you'll get a notification from discord, asking for troops.\n")
+                await discord_client.add_reaction(message, config_strings.checkmark)
+                await discord_client.add_reaction(message, config_strings.xmark)
+                result = await discord_client.wait_for_reaction([config_strings.checkmark, config_strings.xmark], message=message, user=ctx.message.author)
                 if result.reaction.emoji == config_strings.checkmark:
-                    resultString = self.processRoleRequest(discordID, 1)
+                    result_string = self.process_role_request(discord_id, 1)
                 else:
-                    resultString = self.processRoleRequest(discordID, 0)
-                await discordClient.say(resultString)
+                    result_string = self.process_role_request(discord_id, 0)
+                await discord_client.say(result_string)
 
-        generalChannel = discordClient.get_channel(config_bot.generalChannelID)
-        botChannel = discordClient.get_channel(config_bot.testingChannelID)
+        general_channel = discord_client.get_channel(MyConfigBot.generalChannelID)
+        bot_channel = discord_client.get_channel(MyConfigBot.testingChannelID)
         try:
-            await updateRoles()
-            await discordClient.send_message(botChannel, "Applied roles")
+            await update_roles(database_accessor)
+            await discord_client.send_message(bot_channel, "Applied roles")
         except:
-            await discordClient.send_message(botChannel, "Failed to apply roles")
+            await discord_client.send_message(bot_channel, "Failed to apply roles")
 
-        # await updateRoles()
-
-        introductionString = 'Your account(s) are all set up!\n'
-        introductionString += 'During war, you may use @troopdonators to request troops for war.\n'
-        rulesChannel = server.get_channel(config_bot.rulesChannelID)
-        introductionString += 'Please see {} for the clan rules.\n'.format(
-            rulesChannel.mention)
-        warChannel = server.get_channel(config_bot.warChannelID)
-        introductionString += 'Finally, we have a {} channel for discussing war.\n'.format(
-            warChannel.mention)
-        leader = server.get_member(config_bot.leaderDiscordID)
-        introductionString += 'If you have any questions, please ask @{}!'.format(
+        introduction_string = 'Your account(s) are all set up!\n'
+        introduction_string += 'During war, you may use @troopdonators to request troops for war.\n'
+        rules_channel = server.get_channel(MyConfigBot.rulesChannelID)
+        introduction_string += 'Please see {} for the clan rules.\n'.format(
+            rules_channel.mention)
+        war_channel = server.get_channel(MyConfigBot.warChannelID)
+        introduction_string += 'Finally, we have a {} channel for discussing war.\n'.format(
+            war_channel.mention)
+        leader = server.get_member(MyConfigBot.leaderDiscordID)
+        introduction_string += 'If you have any questions, please ask @{}!'.format(
             leader.nick)
-        await discordClient.say(introductionString)
+        await discord_client.say(introduction_string)
 
     @commands.command(name='linkmyaccountold', hidden=True, pass_context=True,  brief='Connect your discord to a clash account')
-    async def linkAccounts(self, ctx, *, memberName):
-        memberName = memberName.upper()
-        discordID = ctx.message.author.id
-        result = clashAccessData.linkDiscordAccount(
-            discordID, memberName, isName=True)
-        await discordClient.say(result)
+    async def linkAccounts(self, ctx, *, member_name):
+        member_name = member_name.upper()
+        discord_id = ctx.message.author.id
+        result = clashAccessData.link_discord_account(discord_id, member_name, is_name=True)
+        await discord_client.say(result)
 
     @commands.command(name='linkmyaccountbytag', pass_context=True, hidden=True)
     async def linkAccountsWithTag(self, ctx, member_tag):
-        discordID = ctx.message.author.id
-        result = clashAccessData.linkDiscordAccount(discordID, member_tag)
-        await discordClient.say(result)
+        discord_id = ctx.message.author.id
+        result = clashAccessData.link_discord_account(discord_id, member_tag)
+        await discord_client.say(result)
 
     @commands.command(name='checkmylinkedaccounts', pass_context=True,  brief='Check which clash accounts you have linked')
-    async def checkLinkedAccounts(self, ctx, discordID=None):
+    async def check_linked_accounts(self, ctx, discord_id=None):
         """Check which Clash accounts are linked with your discord."""
-        if discordID == None:
-            discordID = ctx.message.author.id
-        results = clashAccessData.getLinkedAccounts(discordID)
-        await discordClient.say(results)
+        if discord_id is None:
+            discord_id = ctx.message.author.id
+        results = clashAccessData.getLinkedAccounts(discord_id)
+        await discord_client.say(results)
 
-    def processRoleRequest(self, discordID, val):
+    def process_role_request(self, discordID, val):
         result = clashAccessData.setTroopDonator(discordID, val)
-        resultString = "You are now a troopdonator!"
+        result_string = "You are now a troopdonator!"
         if val == 0:
-            resultString = "You are now not a troopdonator."
+            result_string = "You are now not a troopdonator."
         if result <= 0:
-            resultString = "Unable to process request."
+            result_string = "Unable to process request."
 
             # currently I don't ever hit this code block... do I want to?
-            newResult = clashAccessData.checkTroopDonator(discordID, val)
-            if newResult == True:
+            new_result = clashAccessData.checkTroopDonator(discordID, val)
+            if new_result == True:
                 if val == 1:
-                    resultString = "You already had this role!"
+                    result_string = "You already had this role!"
                 if val == 0:
-                    resultString = "You didn't have this role anyways!"
-        return resultString
+                    result_string = "You didn't have this role anyways!"
+        return result_string
 
     @commands.command(name='changemydonatorstatus', pass_context=True,  brief='Request to become or stop being a @troopdonator.')
-    async def addDonatorRole(self, ctx):
+    async def add_donator_role(self, ctx):
 
-        message = await discordClient.say('Would you like to be a troopdonator?')
+        message = await discord_client.say('Would you like to be a troopdonator?')
 
-        discordID = ctx.message.author.id
+        discord_id = ctx.message.author.id
 
-        await discordClient.add_reaction(message, config_strings.checkmark)
-        await discordClient.add_reaction(message, config_strings.xmark)
+        await discord_client.add_reaction(message, config_strings.checkmark)
+        await discord_client.add_reaction(message, config_strings.xmark)
 
-        result = await discordClient.wait_for_reaction([config_strings.checkmark, config_strings.xmark], message=message, user=ctx.message.author)
+        result = await discord_client.wait_for_reaction([config_strings.checkmark, config_strings.xmark], message=message, user=ctx.message.author)
         if result.reaction.emoji == config_strings.checkmark:
-            wantToBeDonator = True
+            want_to_be_donator = True
         else:
-            wantToBeDonator = False
-        resultString = self.processRoleRequest(discordID, wantToBeDonator)
-        await discordClient.send_message(ctx.message.channel, resultString)
+            want_to_be_donator = False
 
-        botChannel = discordClient.get_channel(config_bot.testingChannelID)
+        result_string = self.process_role_request(discord_id, want_to_be_donator)
+        await discord_client.send_message(ctx.message.channel, result_string)
+
+        bot_channel = discord_client.get_channel(MyConfigBot.testingChannelID)
         try:
-            await updateRoles()
-            await discordClient.send_message(botChannel, "Applied roles")
+            await update_roles(database_accessor)
+            await discord_client.send_message(bot_channel, "Applied roles")
         except:
-            await discordClient.send_message(botChannel, "Failed to apply roles")
+            await discord_client.send_message(bot_channel, "Failed to apply roles")
 
 
-#		await updateRoles()
+#		await update_roles()
 
 class ClanWar:
 
     @commands.command(name='lastroster', pass_context=True,  brief='See the last war roster')
     @commands.has_role("developers")
-    async def getClanWarRoster(self, ctx):
-        await discordClient.say('Working on it...')
-        timeChecking = addTimeToCheck()
-        while lastUpdatedData < timeChecking:
+    async def get_clan_war_roster(self, ctx):
+        await discord_client.say('Working on it...')
+        timeChecking = add_time_to_check()
+        while fetched_data_processor.previous_processed_time_instance.time < timeChecking:
             await asyncio.sleep(1)
 
         roster = clashAccessData.getMembersFromLastWar()
-        await discordClient.say(roster)
+        await discord_client.say(roster)
 
     @commands.command(name='newroster', pass_context=True,  brief='See the new war roster with changes')
     @commands.has_role("coleaders")
-    async def getNewClanWarRoster(self, ctx):
+    async def get_new_clan_war_roster(self, ctx):
         """Generate a new war roster with all changes that were requested."""
-        await discordClient.say('Working on it...')
-        timeChecking = addTimeToCheck()
-        while lastUpdatedData < timeChecking:
+        await discord_client.say('Working on it...')
+        timeChecking = add_time_to_check()
+        while fetched_data_processor.previous_processed_time_instance.time < timeChecking:
             await asyncio.sleep(1)
 
         roster = clashAccessData.getNewWarRoster()
-        await discordClient.say(roster)
+        await discord_client.say(roster)
 
     @commands.command(name='newrosternopull', pass_context=True,  brief='See the new war roster with changes')
     @commands.has_role("coleaders")
     async def getNewClanWarRoster2(self, ctx):
         """Generate a new war roster with all changes that were requested."""
-        await discordClient.say('Working on it...')
+        await discord_client.say('Working on it...')
         roster = clashAccessData.getNewWarRoster()
-        await discordClient.say(roster)
+        await discord_client.say(roster)
 
     @commands.command(name='clearrosterchanges', pass_context=True,  brief='Remove all war roster changes')
     @commands.has_role("developers")
-    async def clearWarChanges(self, ctx):
+    async def clear_war_changes(self, ctx):
         clashAccessData.clearAddAndRemoveFromWar()
-        await discordClient.say('done')
+        await discord_client.say('done')
 
     @commands.command(name='undorosterchange', pass_context=True,  brief='Remove a specific war roster change')
     @commands.has_role("developers")
-    async def undoAWarChange(self, ctx):
+    async def undo_a_war_change(self, ctx):
         while True:
             changes = clashAccessData.getRosterChanges()
-            await discordClient.say(changes)
-            await discordClient.say('What change would you like to undo?')
-            message = await discordClient.wait_for_message(author=ctx.message.author)
-            changeNumber = int(message.content)
-            result = clashAccessData.undoWarChange(int(changeNumber))
-            await discordClient.say('{} changes made'.format(result))
+            await discord_client.say(changes)
+            await discord_client.say('What change would you like to undo?')
+            message = await discord_client.wait_for_message(author=ctx.message.author)
+            change_number = int(message.content)
+            result = clashAccessData.undoWarChange(int(change_number))
+            await discord_client.say('{} changes made'.format(result))
 
-            message = await discordClient.say('Would you like to undo another change?')
-            await discordClient.add_reaction(message, config_strings.checkmark)
-            await discordClient.add_reaction(message, config_strings.xmark)
+            message = await discord_client.say('Would you like to undo another change?')
+            await discord_client.add_reaction(message, config_strings.checkmark)
+            await discord_client.add_reaction(message, config_strings.xmark)
 
-            result = await discordClient.wait_for_reaction([config_strings.checkmark, config_strings.xmark], message=message, user=ctx.message.author)
+            result = await discord_client.wait_for_reaction([config_strings.checkmark, config_strings.xmark], message=message, user=ctx.message.author)
             if result.reaction.emoji == config_strings.checkmark:
                 continue
             else:
                 break
-            await discordClient.send_message(ctx.message.channel, resultString)
+            await discord_client.send_message(ctx.message.channel, resultString)
 
     @commands.command(name='seerosterchanges', pass_context=True,  brief='See all war roster changes for the next war')
-    async def seeWarChanges(self, ctx):
+    async def see_war_changes(self, ctx):
         results = clashAccessData.getRosterChanges()
-        await discordClient.say(results)
+        await discord_client.say(results)
 
     @commands.command(name='removememberfromwar', pass_context=True,  brief='Remove someone else from war')
     @commands.has_role("developers")
-    async def removeFromWar(self, ctx):
+    async def remove_from_war(self, ctx):
         while True:
-            await discordClient.say('Who would you like to remove from war?')
-            message = await discordClient.wait_for_message(author=ctx.message.author)
+            await discord_client.say('Who would you like to remove from war?')
+            message = await discord_client.wait_for_message(author=ctx.message.author)
 
-            clashAccountName = message.content.upper()
-            result = clashAccessData.removeMemberFromWar(clashAccountName)
-            await discordClient.say(result)
+            clash_account_name = message.content.upper()
+            result = clashAccessData.removeMemberFromWar(clash_account_name)
+            await discord_client.say(result)
 
-            message = await discordClient.say('Would you like to remove someone else from war?')
-            await discordClient.add_reaction(message, config_strings.checkmark)
-            await discordClient.add_reaction(message, config_strings.xmark)
+            message = await discord_client.say('Would you like to remove someone else from war?')
+            await discord_client.add_reaction(message, config_strings.checkmark)
+            await discord_client.add_reaction(message, config_strings.xmark)
 
-            result = await discordClient.wait_for_reaction([config_strings.checkmark, config_strings.xmark], message=message, user=ctx.message.author)
+            result = await discord_client.wait_for_reaction([config_strings.checkmark, config_strings.xmark], message=message, user=ctx.message.author)
             if result.reaction.emoji == config_strings.checkmark:
                 continue
             else:
                 break
-            await discordClient.send_message(ctx.message.channel, resultString)
+            await discord_client.send_message(ctx.message.channel, resultString)
 
     @commands.command(name='addmembertowar', pass_context=True,  brief='Add someone else to war')
     @commands.has_role("developers")
-    async def addToWar(self, ctx):
+    async def add_to_war(self, ctx):
         while True:
-            await discordClient.say('Who would you like to add to war?')
-            message = await discordClient.wait_for_message(author=ctx.message.author)
+            await discord_client.say('Who would you like to add to war?')
+            message = await discord_client.wait_for_message(author=ctx.message.author)
 
-            clashAccountName = message.content.upper()
-            result = clashAccessData.addMemberToWar(clashAccountName)
-            await discordClient.say(result)
+            clash_account_name = message.content.upper()
+            result = clashAccessData.addMemberToWar(clash_account_name)
+            await discord_client.say(result)
 
-            message = await discordClient.say('Would you like to add someone else to war?')
-            await discordClient.add_reaction(message, config_strings.checkmark)
-            await discordClient.add_reaction(message, config_strings.xmark)
+            message = await discord_client.say('Would you like to add someone else to war?')
+            await discord_client.add_reaction(message, config_strings.checkmark)
+            await discord_client.add_reaction(message, config_strings.xmark)
 
-            result = await discordClient.wait_for_reaction([config_strings.checkmark, config_strings.xmark], message=message, user=ctx.message.author)
+            result = await discord_client.wait_for_reaction([config_strings.checkmark, config_strings.xmark], message=message, user=ctx.message.author)
             if result.reaction.emoji == config_strings.checkmark:
                 continue
             else:
@@ -440,41 +435,41 @@ class ClanWar:
 
     @commands.command(name='checkmypastwarperformance', pass_context=True,  brief="Check member's past war performance")
     @commands.has_role("developers")
-    async def checkMyPastWarPerformance(self, ctx):
-        discordID = ctx.message.author.id
-        results_dict = clashAccessData.getPastWarPerformance(discordID, 5)
+    async def check_my_past_war_performance(self, ctx):
+        discord_id = ctx.message.author.id
+        results_dict = clashAccessData.getPastWarPerformance(discord_id, 5)
         results = clashConvertDataToString.convert_war_attacks_to_string(
             results_dict)
         try:
-            await discordClient.say(results)
+            await discord_client.say(results)
         except:
-            await discordClient.say('error sending')
+            await discord_client.say('error sending')
 
     @commands.command(name='checkmemberpastwarperformance', pass_context=True,  brief="Check member's past war performance")
     @commands.has_role("developers")
-    async def checkMemberPastWarPerformance(self, ctx, number_of_wars=5):
+    async def check_member_past_war_performance(self, ctx, number_of_wars=5):
         while True:
-            await discordClient.say('Who would you like to see the past performance of?')
-            message = await discordClient.wait_for_message(author=ctx.message.author)
+            await discord_client.say('Who would you like to see the past performance of?')
+            message = await discord_client.wait_for_message(author=ctx.message.author)
 
             clashAccountName = message.content.upper()
             try:
                 resultDict = clashAccessData.getPastWarPerformanceForMemberName(
                     clashAccountName, number_of_wars)
-                resultString = clashConvertDataToString.convert_war_attacks_to_string(
+                result_string = clashConvertDataToString.convert_war_attacks_to_string(
                     resultDict)
             except ValueError as e:
-                resultString = e
+                result_string = e
             try:
-                await discordClient.say(resultString)
+                await discord_client.say(result_string)
             except:
-                await discordClient.say('error sending')
+                await discord_client.say('error sending')
 
-            message = await discordClient.say('Would you like to check someone else?')
-            await discordClient.add_reaction(message, config_strings.checkmark)
-            await discordClient.add_reaction(message, config_strings.xmark)
+            message = await discord_client.say('Would you like to check someone else?')
+            await discord_client.add_reaction(message, config_strings.checkmark)
+            await discord_client.add_reaction(message, config_strings.xmark)
 
-            result = await discordClient.wait_for_reaction([config_strings.checkmark, config_strings.xmark], message=message, user=ctx.message.author)
+            result = await discord_client.wait_for_reaction([config_strings.checkmark, config_strings.xmark], message=message, user=ctx.message.author)
             if result.reaction.emoji == config_strings.checkmark:
                 continue
             else:
@@ -482,203 +477,200 @@ class ClanWar:
 
     @commands.command(name='changemywarstatus', pass_context=True,  brief='Change your war status')
     @commands.has_role("has_war_permissions")
-    async def changeWarStatus(self, ctx):
-        discordID = ctx.message.author.id
+    async def change_war_status(self, ctx):
+        discord_id = ctx.message.author.id
 
         # get accounts currently in clan
         accounts = clashAccessData.getLinkedAccountsList(
-            discordID, currently_in_clan_required=True)
+            discord_id, currently_in_clan_required=True)
 
         if len(accounts) == 0:
-            await discordClient.say('you must link accounts first!')
+            await discord_client.say('you must link accounts first!')
         else:
             question = 'Please hit the check on any accounts you want to add to war, and the x on any you want to remove from war.'
-            await discordClient.say(question)
+            await discord_client.say(question)
             for i in range(len(accounts)):
                 account = accounts[i]
 
-                message = await discordClient.say('{}) {}\n'.format(i+1, account))
+                message = await discord_client.say('{}) {}\n'.format(i + 1, account))
 
-                async def waitForResult(account, message, ctx):
+                async def wait_for_result(account, message, ctx):
 
-                    await discordClient.add_reaction(message, config_strings.checkmark)
-                    await discordClient.add_reaction(message, config_strings.xmark)
+                    await discord_client.add_reaction(message, config_strings.checkmark)
+                    await discord_client.add_reaction(message, config_strings.xmark)
 
-                    result = await discordClient.wait_for_reaction([config_strings.checkmark, config_strings.xmark], message=message, user=ctx.message.author)
+                    result = await discord_client.wait_for_reaction([config_strings.checkmark, config_strings.xmark], message=message, user=ctx.message.author)
                     if result.reaction.emoji == config_strings.checkmark:
-                        resultStringTemp = clashAccessData.addMemberToWar(
+                        result_string_temp = clashAccessData.addMemberToWar(
                             account)
-                        if resultStringTemp == config_strings.success:
-                            resultString = '{} added to war'.format(account)
+                        if result_string_temp == config_strings.success:
+                            result_string = '{} added to war'.format(account)
                         else:
-                            resultString = 'Failed to add {} to war'.format(
+                            result_string = 'Failed to add {} to war'.format(
                                 account)
                     else:
-                        resultStringTemp = clashAccessData.removeMemberFromWar(
+                        result_string_temp = clashAccessData.removeMemberFromWar(
                             account)
-                        if resultStringTemp == config_strings.success:
-                            resultString = '{} removed from war'.format(
+                        if result_string_temp == config_strings.success:
+                            result_string = '{} removed from war'.format(
                                 account)
                         else:
-                            resultString = 'Failed to remove {} from war'.format(
+                            result_string = 'Failed to remove {} from war'.format(
                                 account)
-                    await discordClient.send_message(ctx.message.channel, resultString)
+                    await discord_client.send_message(ctx.message.channel, result_string)
 
-                discordClient.loop.create_task(
-                    waitForResult(account, message, ctx))
+                discord_client.loop.create_task(
+                    wait_for_result(account, message, ctx))
 
 
 class ClanGames:
     @commands.command(name='checkmyCGscores', pass_context=True,  brief='Check your recent Clan Games scores')
-    async def checkMyCGScores(self, ctx):
-        discordID = ctx.message.author.id
-        results = clashAccessData.getClanGamesResultsFor(discordID)
-        await discordClient.say(results)
+    async def check_my_cg_scores(self, ctx):
+        discord_id = ctx.message.author.id
+        results = clashAccessData.getClanGamesResultsFor(discord_id)
+        await discord_client.say(results)
 
     @commands.command(name='checkmemberCGscores', pass_context=True,  brief='Check other members Clan Games scores')
     @commands.has_role("developers")
-    async def checkMembersCGScores(self, ctx):
+    async def check_members_cg_scores(self, ctx):
 
         while True:
-            await discordClient.say('Who would you like to get Clan Games scores for?')
-            message = await discordClient.wait_for_message(author=ctx.message.author)
-            memberName = message.content.upper()
+            await discord_client.say('Who would you like to get Clan Games scores for?')
+            message = await discord_client.wait_for_message(author=ctx.message.author)
+            member_name = message.content.upper()
             results = clashAccessData.getClanGamesResultsForMemberName(
-                memberName)
-            await discordClient.say(results)
+                member_name)
+            await discord_client.say(results)
 
-            message = await discordClient.say('Would you like to check another account?')
-            await discordClient.add_reaction(message, config_strings.checkmark)
-            await discordClient.add_reaction(message, config_strings.xmark)
+            message = await discord_client.say('Would you like to check another account?')
+            await discord_client.add_reaction(message, config_strings.checkmark)
+            await discord_client.add_reaction(message, config_strings.xmark)
 
-            result = await discordClient.wait_for_reaction([config_strings.checkmark, config_strings.xmark], message=message, user=ctx.message.author)
+            result = await discord_client.wait_for_reaction([config_strings.checkmark, config_strings.xmark], message=message, user=ctx.message.author)
             if result.reaction.emoji == config_strings.checkmark:
                 continue
             else:
                 break
-            await discordClient.send_message(ctx.message.channel, resultString)
+            await discord_client.send_message(ctx.message.channel, resultString)
 
     @commands.command(name='checklowCGscores', pass_context=True,  brief='Get members underperforming in the clan games.')
     @commands.has_role("developers")
     async def getClanGamesScores(self, ctx, threshold=250):
-        await discordClient.say('Working on it...')
+        await discord_client.say('Working on it...')
         roster = clashAccessData.getMembersWithScoreUnderThreshold(threshold)
-        await discordClient.say(roster)
+        await discord_client.say(roster)
 
     @commands.command(name='checkineligibleforCG', pass_context=True,  brief='Get members that are too low TH for the CGs.')
     @commands.has_role("developers")
     async def getIneligibleTHs(self, ctx):
         roster = clashAccessData.getIneligibleForClanGames()
-        await discordClient.say(roster)
+        await discord_client.say(roster)
 
 
 class ClanManagement:
     @commands.command(name='trackdonations', pass_context=True)
     @commands.has_role("developers")
-    async def trackBadDonations(self, ctx):
-        discordID = ctx.message.author.id
-        await discordClient.say('How long ago was the request made, in minutes? (Over estimate if needed)')
-        message = await discordClient.wait_for_message(author=ctx.message.author)
-        currentTimestamp = getDataFromServer.getUTCTimestamp()
-        timeSinceCreated = currentTimestamp - int(message.content) * 60
-        await discordClient.say('How long ago was the request filled, in minutes? (Under estimate if needed, 0 if necessary)')
-        message = await discordClient.wait_for_message(author=ctx.message.author)
-        timeSinceFilled = currentTimestamp - int(message.content) * 60
+    async def track_bad_donations(self, ctx):
+        discord_id = ctx.message.author.id
+        await discord_client.say('How long ago was the request made, in minutes? (Over estimate if needed)')
+        message = await discord_client.wait_for_message(author=ctx.message.author)
+        current_timestamp = DateFetcherFormatter.get_utc_timestamp()
+        time_since_created = current_timestamp - int(message.content) * 60
+        await discord_client.say('How long ago was the request filled, in minutes? (Under estimate if needed, 0 if necessary)')
+        message = await discord_client.wait_for_message(author=ctx.message.author)
+        time_since_filled = current_timestamp - int(message.content) * 60
 
-        if timeSinceFilled > lastUpdatedData:
-            timeChecking = addTimeToCheck()
-            while lastUpdatedData < timeChecking:
+        if time_since_filled > fetched_data_processor.previous_processed_time_instance.time:
+            time_checking = add_time_to_check()
+            while fetched_data_processor.previous_processed_time_instance.time < time_checking:
                 await asyncio.sleep(1)
 
-        resultDict = clashAccessData.getAllDonatedOrReceivedInTimeFrame(
-            timeSinceCreated, timeSinceFilled)
-        resultString = clashConvertDataToString.convert_donation_timeframe_results(
-            resultDict)
-        await discordClient.say(str(resultDict))
-        await discordClient.say(resultString)
+        result_dict = clashAccessData.getAllDonatedOrReceivedInTimeFrame(time_since_created, time_since_filled)
+        result_string = clashConvertDataToString.convert_donation_timeframe_results(result_dict)
+        await discord_client.say(str(result_dict))
+        await discord_client.say(result_string)
 
     @commands.command(name='getallmemberswithoutdiscord', pass_context=True)
     @commands.has_role("developers")
-    async def getAllMembersWithoutDiscord(self, ctx):
-        discordID = ctx.message.author.id
-        results = clashAccessData.getAllMembersWithoutDiscordAsString()
-        await discordClient.say(results)
+    async def get_all_members_without_discord(self, ctx):
+        discord_id = ctx.message.author.id
+        results = database_accessor.get_all_members_without_discord_as_string()
+        await discord_client.say(results)
 
     @commands.command(name='getwarmemberswithoutdiscord', pass_context=True)
     @commands.has_role("developers")
-    async def getWarMembersWithoutDiscord(self, ctx):
-        discordID = ctx.message.author.id
-        results = clashAccessData.getMembersInWarWithoutDiscordAsString()
-        await discordClient.say(results)
+    async def get_war_members_without_discord(self, ctx):
+        discord_id = ctx.message.author.id
+        results = database_accessor.getMembersInWarWithoutDiscordAsString()
+        await discord_client.say(results)
 
     @commands.command(name='linkothersaccount', pass_context=True)
     @commands.has_role("developers")
-    async def linkOthersAccounts(self, ctx, discordID, memberName):
+    async def linkOthersAccounts(self, ctx, discordID, member_name):
         """Allows developer to provide a discord id and membername to link an account, should use linkmemberaccount instead"""
-        memberName = memberName.upper()
-        result = clashAccessData.linkDiscordAccount(
-            discordID, memberName, isName=True)
-        await discordClient.say(result)
+        member_name = member_name.upper()
+        result = clashAccessData.link_discord_account(discordID, member_name, is_name=True)
+        await discord_client.say(result)
 
     @commands.command(name='seealllinkedaccounts', pass_context=True)
     @commands.has_role("developers")
-    async def seeAllLinkedAccounts(self, ctx):
+    async def see_all_linked_accounts(self, ctx):
         result = clashAccessData.getAllLinkedAccountsList()
-        await discordClient.say(result)
+        await discord_client.say(result)
 
     @commands.command(name='remindtostart', pass_context=True)
     @commands.has_role("developers")
     async def remindToStart(self, ctx):
-        await discordClient.say('Who would you like to remind to setup their account?')
-        message = await discordClient.wait_for_message(author=ctx.message.author)
+        await discord_client.say('Who would you like to remind to setup their account?')
+        message = await discord_client.wait_for_message(author=ctx.message.author)
         if len(message.mentions) > 0:
-            discordID = message.mentions[0]
-            await discordClient.on_member_join(discordID)
+            discord_id = message.mentions[0]
+            await discord_client.on_member_join(discord_id)
         else:
-            await discordClient.say('Failed to find the mention')
+            await discord_client.say('Failed to find the mention')
 
     @commands.command(name='givememberwarpermissions', pass_context=True)
     @commands.has_role("developers")
-    async def giveMemberWarPermissions(self, ctx):
+    async def give_member_war_permissions(self, ctx):
         discordID = ctx.message.author.id
-        await discordClient.say('Who would you like to set war permissions for?')
-        message = await discordClient.wait_for_message(author=ctx.message.author)
-        memberName = message.content.upper()
-        accountExists = clashAccessData.verifyAccountExists(memberName)
-        if accountExists:
-            message = await discordClient.say('Should this account have permissions?')
-            await discordClient.add_reaction(message, config_strings.checkmark)
-            await discordClient.add_reaction(message, config_strings.xmark)
+        await discord_client.say('Who would you like to set war permissions for?')
+        message = await discord_client.wait_for_message(author=ctx.message.author)
+        member_name = message.content.upper()
+        account_exists = clashAccessData.verifyAccountExists(member_name)
+        if account_exists:
+            message = await discord_client.say('Should this account have permissions?')
+            await discord_client.add_reaction(message, config_strings.checkmark)
+            await discord_client.add_reaction(message, config_strings.xmark)
 
-            result = await discordClient.wait_for_reaction([config_strings.checkmark, config_strings.xmark], message=message, user=ctx.message.author)
+            result = await discord_client.wait_for_reaction([config_strings.checkmark, config_strings.xmark], message=message, user=ctx.message.author)
             if result.reaction.emoji == config_strings.checkmark:
-                count = clashAccessData.setWarPermissionVal(memberName, 1)
+                count = clashAccessData.setWarPermissionVal(member_name, 1)
             else:
-                count = clashAccessData.setWarPermissionVal(memberName, 0)
-            await discordClient.say('{} rows changed.'.format(count))
+                count = clashAccessData.setWarPermissionVal(member_name, 0)
+            await discord_client.say('{} rows changed.'.format(count))
             try:
-                await updateRoles()
-                await discordClient.say("Applied roles")
+                await update_roles(database_accessor)
+                await discord_client.say("Applied roles")
             except:
-                await discordClient.say("Failed to apply roles")
+                await discord_client.say("Failed to apply roles")
         else:
-            await discordClient.say('Unable to find this account')
+            await discord_client.say('Unable to find this account')
 
 
 clan_war_clog = ClanWar()
-discordClient.add_cog(clan_war_clog)
+discord_client.add_cog(clan_war_clog)
 
 clan_management_cog = ClanManagement()
-discordClient.add_cog(clan_management_cog)
+discord_client.add_cog(clan_management_cog)
 
 clan_games_cog = ClanGames()
-discordClient.add_cog(clan_games_cog)
+discord_client.add_cog(clan_games_cog)
 
 account_management_cog = AccountManagement()
-discordClient.add_cog(account_management_cog)
+discord_client.add_cog(account_management_cog)
 
 
-async def updateRoles():
+async def update_roles(database_accessor):
 
     print('updating roles')
     roles = server.roles
@@ -689,332 +681,317 @@ async def updateRoles():
             if f(item):
                 return item
         return None
-    memberRole = find(lambda role: role.name == 'members', roles)
-    warRole = find(lambda role: role.name == 'war', roles)
-    troopRole = find(lambda role: role.name == 'troopdonators', roles)
-    checkInRole = find(lambda role: role.name == 'MIAUsers', roles)
-    warPermsRole = find(lambda role: role.name == 'has_war_permissions', roles)
-    th12Role = find(lambda role: role.name == 'TH12', roles)
+    member_role = find(lambda role: role.name == 'members', roles)
+    war_role = find(lambda role: role.name == 'war', roles)
+    troop_role = find(lambda role: role.name == 'troopdonators', roles)
+    check_in_role = find(lambda role: role.name == 'MIAUsers', roles)
+    war_perms_role = find(lambda role: role.name == 'has_war_permissions', roles)
+    th12_role = find(lambda role: role.name == 'TH12', roles)
 
-    discordIDsOfMembersInClan = clashAccessData.getMembersInClan()
-    discordIDsOfWarParticipants = clashAccessData.getDiscordMembersInWar()
-    discordIDsOfMembersWithWarPermissions = clashAccessData.getDiscordIDsOfMembersWithWarPermissions()
-    discordIDsOfMembersWhoAreTH12 = clashAccessData.getDiscordIDsOfMembersWhoAreTH12()
+    discord_ids_of_members_in_clan = database_accessor.get_members_in_clan()
+    discord_ids_of_war_participants = database_accessor.get_discord_members_in_war()
+    discord_ids_of_members_with_war_permissions = database_accessor.get_discord_ids_of_members_with_war_permissions()
+    discord_ids_of_members_who_are_th12 = database_accessor.get_discord_ids_of_members_who_are_th12()
+
+    print(discord_ids_of_members_in_clan)
+    print(discord_ids_of_war_participants)
+    print(discord_ids_of_members_with_war_permissions)
+    print(discord_ids_of_members_who_are_th12)
 
     # go through everyone in discord
-    for serverMember in server.members:
+    for server_member in server.members:
 
-        if serverMember.bot:
+        if server_member.bot:
             continue
-        serverMemberID = serverMember.id
+        server_member_id = server_member.id
 
-        if serverMemberID in discordIDsOfMembersInClan:
-            rolesToAdd = []
-            rolesToRemove = []
+        if server_member_id in discord_ids_of_members_in_clan:
+            roles_to_add = []
+            roles_to_remove = []
 
-            if not memberRole in serverMember.roles:
-                rolesToAdd.append(memberRole)
+            if member_role not in server_member.roles:
+                roles_to_add.append(member_role)
 
-            isTroopDonator = discordIDsOfMembersInClan[serverMemberID]
-            if isTroopDonator == 1:
-                if not troopRole in serverMember.roles:
-                    rolesToAdd.append(troopRole)
+            is_troop_donator = discord_ids_of_members_in_clan[server_member_id]
+            if is_troop_donator == 1:
+                if troop_role not in server_member.roles:
+                    roles_to_add.append(troop_role)
             else:
-                if troopRole in serverMember.roles:
-                    rolesToRemove.append(troopRole)
+                if troop_role in server_member.roles:
+                    roles_to_remove.append(troop_role)
 
-            if serverMemberID in discordIDsOfMembersWithWarPermissions:
-                if not warPermsRole in serverMember.roles:
-                    rolesToAdd.append(warPermsRole)
+            if server_member_id in discord_ids_of_members_with_war_permissions:
+                if war_perms_role not in server_member.roles:
+                    roles_to_add.append(war_perms_role)
             else:
-                if warPermsRole in serverMember.roles:
-                    rolesToRemove.append(warPermsRole)
+                if war_perms_role in server_member.roles:
+                    roles_to_remove.append(war_perms_role)
 
-            if serverMemberID in discordIDsOfWarParticipants:
-                if not warRole in serverMember.roles:
-                    rolesToAdd.append(warRole)
+            if server_member_id in discord_ids_of_war_participants:
+                if war_role not in server_member.roles:
+                    roles_to_add.append(war_role)
             else:
-                if warRole in serverMember.roles:
-                    rolesToRemove.append(warRole)
+                if war_role in server_member.roles:
+                    roles_to_remove.append(war_role)
 
-            if serverMemberID in discordIDsOfMembersWhoAreTH12:
-                if not th12Role in serverMember.roles:
-                    rolesToAdd.append(th12Role)
+            if server_member_id in discord_ids_of_members_who_are_th12:
+                if th12_role not in server_member.roles:
+                    roles_to_add.append(th12_role)
             else:
-                if th12Role in serverMember.roles:
-                    rolesToRemove.append(th12Role)
+                if th12_role in server_member.roles:
+                    roles_to_remove.append(th12_role)
 
             # update roles
-            if len(rolesToAdd) > 0:
-                await discordClient.add_roles(serverMember, *rolesToAdd)
-            if len(rolesToRemove) > 0:
-                for role in rolesToRemove:
+            if len(roles_to_add) > 0:
+                await discord_client.add_roles(server_member, *roles_to_add)
+            if len(roles_to_remove) > 0:
+                for role in roles_to_remove:
                     print(role)
-                await discordClient.remove_roles(serverMember, *rolesToRemove)
+                await discord_client.remove_roles(server_member, *roles_to_remove)
         # if not in clan, remove roles
         else:
-            if len(serverMember.roles) > 1:
-                await discordClient.remove_roles(serverMember, memberRole, warRole, troopRole, checkInRole)
+            if len(server_member.roles) > 1:
+                await discord_client.remove_roles(server_member, member_role, war_role, troop_role, check_in_role)
 
     print('done updating!')
 
 
-def updateTimesToCheckData():
+def update_times_to_check_data():
 
-    currentDateTime = getDataFromServer.getUTCDateTime()
-    print('current:           {}'.format(currentDateTime.timestamp()))
+    current_date_time = DateFetcherFormatter.get_utc_date_time()
+    print('current:           {}'.format(current_date_time.timestamp()))
 
-    currentRoundedDownToHourAnd5 = datetime.datetime(
-        currentDateTime.year, currentDateTime.month, currentDateTime.day, currentDateTime.hour, 5).replace(tzinfo=pytz.utc)
+    current_rounded_down_to_hour_and5 = datetime.datetime(
+        current_date_time.year, current_date_time.month, current_date_time.day, current_date_time.hour, 5).replace(tzinfo=pytz.utc)
     print('currentRoundedDown {}'.format(
-        currentRoundedDownToHourAnd5.timestamp()))
+        current_rounded_down_to_hour_and5.timestamp()))
 
-    if currentDateTime < currentRoundedDownToHourAnd5:
-        nextTimeToCheckData = currentRoundedDownToHourAnd5.timestamp()
+    if current_date_time < current_rounded_down_to_hour_and5:
+        next_time_to_check_data = current_rounded_down_to_hour_and5.timestamp()
     else:
-        nextHourAnd5 = currentRoundedDownToHourAnd5.timestamp() + (60 * 60)
-        print('5pastnexthour      {}'.format(nextHourAnd5))
-        nextTimeToCheckData = nextHourAnd5
-    print('nextTime:          {}'.format(nextTimeToCheckData))
+        next_hour_and5 = current_rounded_down_to_hour_and5.timestamp() + (60 * 60)
+        print('5pastnexthour      {}'.format(next_hour_and5))
+        next_time_to_check_data = next_hour_and5
+    print('nextTime:          {}'.format(next_time_to_check_data))
 
-#	currentDateTime = datetime.datetime.utcnow()
-#	currentRoundedDownToHour = datetime.datetime(currentDateTime.year, currentDateTime.month, currentDateTime.day, currentDateTime.hour)
+#	current_date_time = datetime.datetime.utcnow()
+#	currentRoundedDownToHour = datetime.datetime(current_date_time.year, current_date_time.month, current_date_time.day, current_date_time.hour)
 #	currentRoundedDownToHourSeconds = currentRoundedDownToHour.replace(tzinfo=pytz.utc).timestamp() + 300
 #	nextRoundedDownToHourSeconds = currentRoundedDownToHourSeconds + (60 * 60)
-#	if currentRoundedDownToHourSeconds not in timesToCheckData and lastFetchedData < currentRoundedDownToHourSeconds:
-#		timesToCheckData.append(currentRoundedDownToHourSeconds)
-#	if nextRoundedDownToHourSeconds not in timesToCheckData and lastFetchedData < nextRoundedDownToHourSeconds:
-#		timesToCheckData.append(nextRoundedDownToHourSeconds)
+#	if currentRoundedDownToHourSeconds not in times_to_check_data and lastFetchedData < currentRoundedDownToHourSeconds:
+#		times_to_check_data.append(currentRoundedDownToHourSeconds)
+#	if nextRoundedDownToHourSeconds not in times_to_check_data and lastFetchedData < nextRoundedDownToHourSeconds:
+#		times_to_check_data.append(nextRoundedDownToHourSeconds)
 #
-#	timesToCheckData.sort()
+#	times_to_check_data.sort()
 #
 # print("current:")
-#	currentTimeEpoch = currentDateTime.replace(tzinfo=pytz.utc).timestamp()
+#	currentTimeEpoch = current_date_time.replace(tzinfo=pytz.utc).timestamp()
 # print(currentTimeEpoch)
 # print("list:")
-# for entry in timesToCheckData:
+# for entry in times_to_check_data:
 # print(entry)
 #
-    return nextTimeToCheckData
+    return next_time_to_check_data
 
 
-timesToCheckData = []
+times_to_check_data = []
 
-dataCheckOverride = False
+data_check_override = False
 
-# todo change this...
-lastUpdatedData = 0
-
-
-def addTimeToCheck():
+def add_time_to_check():
     #	if timestampTest == None:
-    timestampTest = getDataFromServer.getUTCTimestamp()
-#	global timesToCheckData
-#	timesToCheckData.append(timestampTest)
-    global dataCheckOverride
-    dataCheckOverride = True
+    timestampTest = DateFetcherFormatter.get_utc_timestamp()
+#	global times_to_check_data
+#	times_to_check_data.append(timestampTest)
+    global data_check_override
+    data_check_override = True
 
     return timestampTest
 
 
-async def sendOutGiftReminders():
-
-    botChannel = discordClient.get_channel(botChannelID)
-    generalChannel = discordClient.get_channel(config_bot.generalChannelID)
+async def send_out_gift_reminders(database_accessor):
+    return
+    bot_channel = discord_client.get_channel(botChannelID)
+    general_channel = discord_client.get_channel(MyConfigBot.generalChannelID)
 
     while True:
-        currentDateTime = getDataFromServer.getUTCDateTime()
-        currentDateTimeTimestamp = int(currentDateTime.timestamp())
-        accountsWithGiftsOnIt = clashAccessData.getAccountsWhoGetGiftReminders(
-            currentDateTime)
-        for entry in accountsWithGiftsOnIt:
-            discordID = str(entry['discord'])
-            accountName = entry['accountName']
-            member = server.get_member(discordID)
-            await discordClient.send_message(botChannel, 'Hey {}, {} gets a free gift today!'.format(member.mention, accountName))
+        current_date_time = DateFetcherFormatter.get_utc_date_time()
+        current_date_time_timestamp = int(current_date_time.timestamp())
+        accounts_with_gifts_on_it = clashAccessData.getAccountsWhoGetGiftReminders(
+            current_date_time)
+        for entry in accounts_with_gifts_on_it:
+            discord_id = str(entry['discord'])
+            account_name = entry['account_name']
+            member = server.get_member(discord_id)
+            await discord_client.send_message(bot_channel, 'Hey {}, {} gets a free gift today!'.format(member.mention, account_name))
             await asyncio.sleep(1)
-        nextTimestamp = currentDateTimeTimestamp + 3600
-        timeToSleep = nextTimestamp - currentDateTimeTimestamp
-        await asyncio.sleep(timeToSleep)
+        next_timestamp = current_date_time_timestamp + 3600
+        time_to_sleep = next_timestamp - current_date_time_timestamp
+        await asyncio.sleep(time_to_sleep)
 
 
-async def sendOutWarReminders():
-    warChannel = discordClient.get_channel(config_bot.warChannelID)
-    botChannel = discordClient.get_channel(config_bot.testingChannelID)
+async def send_out_war_reminders(database_accessor):
+    war_channel = discord_client.get_channel(MyConfigBot.warChannelID)
+    bot_channel = discord_client.get_channel(MyConfigBot.testingChannelID)
     while True:
-        nextTimestampsForWar = clashAccessData.getTimestampsForCurrentWar()
-        if nextTimestampsForWar == None:
+        next_timestamps_for_war = database_accessor.get_timestamps_for_current_war()
+        if next_timestamps_for_war is None:
             await asyncio.sleep(3600*6)
         else:
-            nextWarTimestamp = nextTimestampsForWar[0][0]
-            nextWarTimestampString = nextTimestampsForWar[0][1]
-            timeToSleep = nextWarTimestamp - getDataFromServer.getUTCTimestamp()
-            await asyncio.sleep(timeToSleep)
+            next_war_timestamp = next_timestamps_for_war[0][0]
+            next_war_timestamp_string = next_timestamps_for_war[0][1]
+            time_to_sleep = next_war_timestamp - DateFetcherFormatter.get_utc_timestamp()
+            await asyncio.sleep(time_to_sleep)
 
             # update data to be sure we aren't sending reminders to people who have already attacked, just recently
-            timeChecking = addTimeToCheck()
-            while lastUpdatedData < timeChecking:
+            time_checking = add_time_to_check()
+            while fetched_data_processor.previous_processed_time_instance.time < time_checking:
                 await asyncio.sleep(1)
 
-            accountsThatNeedToAttack = clashAccessData.getMembersInWarWithAttacksRemaining()
-            for discordID in accountsThatNeedToAttack:
-                accountNamesDict = accountsThatNeedToAttack[discordID]
-                accountNamesString = ""
-                accountsTotal = len(accountNamesDict)
-                currentAccount = 0
-                for accountName in accountNamesDict:
-                    numberOfAttacks = accountNamesDict[accountName]
-                    if numberOfAttacks == 1:
-                        accountNamesString += ' your {} attack with {}'.format(
-                            numberOfAttacks, accountName)
+            accounts_that_need_to_attack = database_accessor.get_members_in_war_with_attacks_remaining()
+            for discord_id in accounts_that_need_to_attack:
+                account_names_dict = accounts_that_need_to_attack[discord_id]
+                account_names_string = ""
+                accounts_total = len(account_names_dict)
+                current_account = 0
+                for account_name in account_names_dict:
+                    number_of_attacks = account_names_dict[account_name]
+                    if number_of_attacks == 1:
+                        account_names_string += ' your {} attack with {}'.format(
+                            number_of_attacks, account_name)
                     else:
-                        accountNamesString += ' your {} attacks with {}'.format(
-                            numberOfAttacks, accountName)
-                    if currentAccount == accountsTotal - 1:
+                        account_names_string += ' your {} attacks with {}'.format(
+                            number_of_attacks, account_name)
+                    if current_account == accounts_total - 1:
                         # last account, do nothing at the end
-                        accountNamesString += ''
-                    elif currentAccount == accountsTotal - 2 and accountsTotal == 2:
-                        accountNamesString += ' and'
-                    elif currentAccount == accountsTotal - 2:
-                        accountNamesString += ', and'
+                        account_names_string += ''
+                    elif current_account == accounts_total - 2 and accounts_total == 2:
+                        account_names_string += ' and'
+                    elif current_account == accounts_total - 2:
+                        account_names_string += ', and'
                     else:
-                        accountNamesString += ','
-                    currentAccount += 1
-                discordID = str(discordID)
-                member = server.get_member(discordID)
-                await discordClient.send_message(warChannel, 'Hey {}, make sure to use{}! {}'.format(member.mention, accountNamesString, nextWarTimestampString))
+                        account_names_string += ','
+                    current_account += 1
+                discord_id = str(discord_id)
+                member = server.get_member(discord_id)
+                await discord_client.send_message(war_channel, 'Hey {}, make sure to use{}! {}'.format(member.mention, account_names_string, next_war_timestamp_string))
                 await asyncio.sleep(1)
 
 
 async def createRules():
-    rulesChannel = discordClient.get_channel(config_bot.rulesChannelID)
+    rules_channel = discord_client.get_channel(MyConfigBot.rulesChannelID)
     with open('clanRules.json') as rulesFiles:
-        newRules = json.load(rulesFiles)
+        new_rules = json.load(rulesFiles)
         # Most of the time, we will be modifying wording, so we want to delete and re-enter the same number of rules.
         # We can always manually delete 1 or 2 extra manually if we delete rule categories.
-        async for x in discordClient.logs_from(rulesChannel, limit=len(newRules["Rules"])):
-            await discordClient.delete_message(x)
-        for x in newRules["Rules"]:
+        async for x in discord_client.logs_from(rules_channel, limit=len(new_rules["Rules"])):
+            await discord_client.delete_message(x)
+        for x in new_rules["Rules"]:
             x['type'] = 'rich'
-            newEmbed = discord.Embed(**x)
-            await discordClient.send_message(rulesChannel, embed=newEmbed)
+            new_embed = discord.Embed(**x)
+            await discord_client.send_message(rules_channel, embed=new_embed)
 
 
-async def startGatheringData():
+async def start_gathering_data():
 
-    print('startGatheringData starting')
+    print('start_gathering_data starting')
 
-    global timesToCheckData
-    global lastUpdatedData
-    global dataCheckOverride
+    global times_to_check_data
+    # global last_updated_data
+    global data_check_override
 
-    lastUpdatedData = clashAccessData.getLastProcessedTime()
+    db_path = "clashData.db"
+    db_session = DatabaseSetup.get_session(engine_string="sqlite:///" + db_path)
+
+# self.previous_processed_time
+#     last_updated_data = fetched_data_processor.previous_processed_time # clashAccessData.getLastProcessedTime()
 
     # this is last retrieved, regardless of failure
-    lastFetched = clashAccessData.getLastProcessedTime()
+    # last_fetched = clashAccessData.getLastProcessedTime()
 
     # this handles startups, but prevents spammy startups when restarting several times in a row
-    if getDataFromServer.getUTCTimestamp() - lastFetched > 60 * 60:
-        dataCheckOverride = True
+    if DateFetcherFormatter.get_utc_timestamp() - fetched_data_processor.previous_processed_time_instance.time > 60 * 60:
+        data_check_override = True
 
-    await discordClient.wait_until_ready()
-    botChannel = discordClient.get_channel(botChannelID)
+    await discord_client.wait_until_ready()
+    bot_channel = discord_client.get_channel(botChannelID)
 
     global server
-    server = discordClient.get_server(config_bot.generalChannelID)
+    server = discord_client.get_server(MyConfigBot.server_id)
 
-    discordClient.loop.create_task(sendOutGiftReminders())
-    discordClient.loop.create_task(sendOutWarReminders())
-    # discordClient.loop.create_task(createRules())
+    discord_client.loop.create_task(send_out_gift_reminders(database_accessor))
+    discord_client.loop.create_task(send_out_war_reminders(database_accessor))
+    # discord_client.loop.create_task(createRules())
 
-    await discordClient.send_message(botChannel, "Coming online")
+    await discord_client.send_message(bot_channel, "Coming online")
 
-    nextTimeToCheckData = updateTimesToCheckData()
+    next_time_to_check_data = update_times_to_check_data()
     try:
         while True:
-            currentTimeSeconds = int(time.time())
+            current_time_seconds = int(time.time())
 #			print("\n\nUpdating")
 
-            # allows discord to request a check whenever
-            # check once an hour normally
-            # prevent checks more than every 10 minutes in case of restarts, unless its been overridden
-#			if dataCheckOverride == False and (currentTimeSeconds < timesToCheckData[0] or currentTimeSeconds < clashAccessData.getLastProcessedTime()+3000):
-#				#print("current in loop:")
-#				print(currentTimeSeconds)
-#				#print(timesToCheckData[0])
-#				#print("sleeping")
-#				await asyncio.sleep(1)
-#				continue
-
-#			print("\n")
-#			print('cur: {}'.format(currentTimeSeconds))
-#			print('nex: {}'.format(nextTimeToCheckData))
-
-            if dataCheckOverride == True:
+            if data_check_override == True:
                 pass
-            elif currentTimeSeconds >= nextTimeToCheckData:
-                nextTimeToCheckData = updateTimesToCheckData()
-#			elif currentTimeSeconds >= timesToCheckData[0] and currentTimeSeconds >= clashAccessData.getLastProcessedTime()+3000:
-#				print('is this really what I want?')
+            elif current_time_seconds >= next_time_to_check_data:
+                next_time_to_check_data = update_times_to_check_data()
                 pass
             else:
-                #print("current in loop:")
-                # print(currentTimeSeconds)
-                # print(timesToCheckData[0])
-                # print("sleeping")
                 await asyncio.sleep(1)
                 continue
 
-            lastFetched = getDataFromServer.getUTCTimestamp()
-            dataCheckOverride = False
+            print('got here...')
+
+            last_fetched = DateFetcherFormatter.get_utc_timestamp()
+            data_check_override = False
 
             print("getting data")
-
             try:
-                await discordClient.send_message(botChannel, "Getting data")
+                await discord_client.send_message(bot_channel, "Getting data")
                 try:
-                    getDataFromServer.getDataFromServer()
+                    await discord_client.loop.run_in_executor(None, data_fetcher.get_data_from_server)
                     await asyncio.sleep(1)
                 except Exception as e:
-                    await discordClient.send_message(botChannel, "getDataFromServer: {}".format(e))
+                    await discord_client.send_message(bot_channel, "get_data_from_server: {}".format(e))
                     raise
                 try:
-                    dataValid = getDataFromServer.validateData()
+                    data_valid = await discord_client.loop.run_in_executor(None, data_fetcher.validate_data)
                 except IOError as e:
-                    await discordClient.send_message(botChannel, "The data file doesn't exist to validate {}".format(e))
-                    dataValid = False
+                    await discord_client.send_message(bot_channel, "The data file doesn't exist to validate {}".format(e))
+                    data_valid = False
             except Exception as e:
                 print(e)
-                await discordClient.send_message(botChannel, "error, trying again momentarily")
+                await discord_client.send_message(bot_channel, "error, trying again momentarily")
                 await asyncio.sleep(60)
                 try:
-                    await discordClient.send_message(botChannel, "trying again now")
-                    getDataFromServer.getDataFromServer()
-                    dataValid = getDataFromServer.validateData()
+                    await discord_client.send_message(bot_channel, "trying again now")
+                    await discord_client.loop.run_in_executor(None, data_fetcher.get_data_from_server)
+                    data_valid = await discord_client.loop.run_in_executor(None, data_fetcher.validate_data)
                 except:
-                    await discordClient.send_message(botChannel, "Something is not working")
-                    dataValid = False
-            if dataValid:
-                await discordClient.send_message(botChannel, "Data was retrieved")
+                    await discord_client.send_message(bot_channel, "Something is not working")
+                    data_valid = False
+            if data_valid:
+                await discord_client.send_message(bot_channel, "Data was retrieved")
                 try:
-                    clashSaveData.saveData()
+                    await discord_client.loop.run_in_executor(None, fetched_data_processor.save_data)
                     await asyncio.sleep(1)
-                    lastUpdatedData = getDataFromServer.getUTCTimestamp()
-                    await discordClient.send_message(botChannel, "Data was saved")
+                    # last_updated_data = DateFetcherFormatter.get_utc_timestamp()
+                    await discord_client.send_message(bot_channel, "Data was saved")
                     try:
-                        await updateRoles()
-                        await discordClient.send_message(botChannel, "Applied roles")
-                    except:
-                        await discordClient.send_message(botChannel, "Failed to apply roles")
+                        await update_roles(database_accessor)
+                        await discord_client.send_message(bot_channel, "Applied roles")
+                    except Exception:
+                        await discord_client.send_message(bot_channel, "Failed to apply roles")
                 except:
-                    await discordClient.send_message(botChannel, "Data failed to save")
+                    await discord_client.send_message(bot_channel, "Data failed to save")
             else:
-                await discordClient.send_message(botChannel, "Data was not retrieved")
+                await discord_client.send_message(bot_channel, "Data was not retrieved")
 
     except Exception as err:
         print("Error: " + str(err))
 
-discordClient.loop.create_task(startGatheringData())
+discord_client.loop.create_task(start_gathering_data())
 
-discordToken = config_bot.token
-discordClient.run(discordToken)
+discordToken = MyConfigBot.token
+discord_client.run(discordToken)

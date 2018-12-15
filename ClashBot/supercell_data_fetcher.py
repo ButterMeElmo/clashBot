@@ -6,39 +6,36 @@ import time
 from subprocess import call
 
 from ClashBot import DateFetcherFormatter
-# from ClashBot import ClashOfClansAPI
+from ClashBot import ClashOfClansAPI, MyConfigBot
+import os.path
 
 
 class SupercellDataFetcher:
 
     date_fetcher_formatter = DateFetcherFormatter()
-    
-    def getDataFromServer(self):
-        call(["node", "myCocAPI.js", ">", "/dev/null"])
-        # ClashOfClansAPI.fetch_and_save()
 
-    def getFileNames(self, directory_for_data, starting_file_name, extension, starting_time_stamp):
+    def get_file_names(self, directory_for_data, starting_file_name, extension, starting_time_stamp):
         date = datetime.datetime.utcfromtimestamp(starting_time_stamp)
         counter_aware_utc_dt = date.replace(tzinfo=pytz.utc)
 
         results = []
 
-        end_of_today = self.date_fetcher_formatter.getUTCDateTime().replace(hour=23, minute=59, second=59)
+        end_of_today = self.date_fetcher_formatter.get_utc_date_time().replace(hour=23, minute=59, second=59)
 
         while counter_aware_utc_dt <= end_of_today:
-            results.append(self.getFileName(directory_for_data, starting_file_name, extension, counter_aware_utc_dt))
+            results.append(self.get_file_name(directory_for_data, starting_file_name, extension, counter_aware_utc_dt))
             counter_aware_utc_dt = counter_aware_utc_dt.replace(hour= 12)
             counter_aware_utc_dt = counter_aware_utc_dt + datetime.timedelta(days=1)
             counter_aware_utc_dt = counter_aware_utc_dt.replace(hour= 12)
 
         return results
 
-    def getFileName(self, directory_for_data, starting_file_name, extension, date = None):
+    def get_file_name(self, directory_for_data, starting_file_name, extension, date = None):
         directory_for_data = str(directory_for_data)
         if len(directory_for_data) > 0 and directory_for_data[-1] != '/' and directory_for_data[-1] != '\\':
             directory_for_data += "/"
         if date is None:
-            date = self.date_fetcher_formatter.getUTCDateTime()
+            date = self.date_fetcher_formatter.get_utc_date_time()
         year = date.year
         month = date.month
         day = date.day
@@ -46,23 +43,84 @@ class SupercellDataFetcher:
         result = directory_for_data + starting_file_name + date_string + extension
         return result
 
-    def validateData(self, directoryForData='data'):
+    def save_data_files(self, file_name, data_to_save, output_dir='data'):
+        if output_dir[-1] != '/':
+            output_dir += '/'
+        extension = '.json'
+        dff = DateFetcherFormatter()
+        data_file_path = self.get_file_name(output_dir, file_name, extension)
+        if os.path.isfile(data_file_path):
+            with open(data_file_path, 'r') as in_file:
+                current_data = json.load(in_file)
+        else:
+            current_data = []
+        data_to_save['timestamp'] = DateFetcherFormatter().get_utc_timestamp() * 1000
+        current_data.append(data_to_save)
+        with open(data_file_path, 'w') as outfile:
+            output_data = json.dumps(current_data, indent=4)
+            outfile.write(output_data)
+
+    def fetch_data(self):
+        print('Starting fetching data from clash api')
+        token = MyConfigBot.supercell_token_to_use
+        coc_client = ClashOfClansAPI(token)
+
+        my_clan_tag = MyConfigBot.my_clan_tag[1:]
+
+        clan_profile = coc_client.get_clan_profile(my_clan_tag)
+
+        clan_war_log = coc_client.get_clan_war_log(my_clan_tag)
+        current_clan_war = coc_client.get_current_clan_war(my_clan_tag)
+        current_war_league_group = coc_client.get_current_war_league_group(my_clan_tag)
+        clan_leagues_war_data = {}
+        if len(current_war_league_group) > 0:
+            rounds = current_war_league_group['rounds']
+            for rnd in rounds:
+                war_tags = rnd['warTags']
+                for war_tag in war_tags:
+                    war_tag = war_tag[1:]
+                    if "0" == war_tag:
+                        continue
+                    clan_war_leagues_war = coc_client.get_clan_war_leagues_war(war_tag)
+                    clan_leagues_war_data['#'+war_tag] = clan_war_leagues_war
+
+        clan_members = coc_client.get_clan_members(my_clan_tag)
+        all_member_achievement_data = {}
+        all_member_achievement_data_members = []
+        for member in clan_members['items']:
+            member_tag = member['tag'][1:]
+            member_achievement_data = coc_client.get_player_information(member_tag)
+            all_member_achievement_data_members.append(member_achievement_data)
+        all_member_achievement_data['members'] = all_member_achievement_data_members
+
+        self.save_data_files('warLog', clan_war_log)
+        self.save_data_files('warDetailsLog', current_clan_war)
+        self.save_data_files('currentClanWarLeagueGroup', current_war_league_group)
+        self.save_data_files('clanWarLeagueWars', clan_leagues_war_data)
+        self.save_data_files('clanMembers', clan_members)
+        self.save_data_files('clanLog', clan_profile)
+        self.save_data_files('clanPlayerAchievements', all_member_achievement_data)
+
+    def get_data_from_server(self):
+        self.fetch_data()
+
+    def validate_data(self, directoryForData='data'):
         """
         Makes sure the data pull was successful.
         """
         datasets = []
 
         try:
-            with open(self.getFileName(directoryForData, "warDetailsLog", ".json"), "r") as file:
+            with open(self.get_file_name(directoryForData, "warDetailsLog", ".json"), "r") as file:
                 war_details_snapshot = json.load(file)
                 datasets.append(war_details_snapshot)
-            with open(self.getFileName(directoryForData, "clanLog", ".json"), "r") as file:
+            with open(self.get_file_name(directoryForData, "clanLog", ".json"), "r") as file:
                 clan_profile_snapshot = json.load(file)
                 datasets.append(clan_profile_snapshot)
-            with open(self.getFileName(directoryForData, "warLog", ".json"), "r") as file:
+            with open(self.get_file_name(directoryForData, "warLog", ".json"), "r") as file:
                 war_log_snapshot = json.load(file)
                 datasets.append(war_log_snapshot)
-            with open(self.getFileName(directoryForData, "clanPlayerAchievements", ".json"), "r") as file:
+            with open(self.get_file_name(directoryForData, "clanPlayerAchievements", ".json"), "r") as file:
                 player_achievements_snapshot = json.load(file)
                 datasets.append(player_achievements_snapshot)
         except FileNotFoundError as e:
@@ -72,7 +130,7 @@ class SupercellDataFetcher:
             print('A file does not contain valid json: {}'.format(e))
             return False
 
-        current_time = self.date_fetcher_formatter.getUTCTimestamp() * 1000
+        current_time = self.date_fetcher_formatter.get_utc_timestamp() * 1000
 
         for dataset in datasets:
             if len(dataset) == 0:
@@ -95,13 +153,16 @@ class SupercellDataFetcher:
 
 def main():
 
-    scdf = SupercellDataFetcher()
-    scdf.getDataFromServer()
-    valid = scdf.validateData()
-    if valid:
-        print("Data was retrieved")
-    else:
-        print("Data was not retrieved")
+    try:
+        scdf = SupercellDataFetcher()
+        scdf.fetch_data()
+        valid = scdf.validate_data()
+        if valid:
+            print("Data was retrieved")
+        else:
+            print("Data was not retrieved")
+    except Exception as e:
+        print('Unable to complete fetching data: {}'.format(e))
 
 
 def init():

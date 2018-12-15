@@ -28,6 +28,7 @@ ClashBot/clashWebServer.py
 ClashBot/manuallyInputtingDataConversion/*
 !ClashBot/manuallyInputtingDataConversion/1_clanGamesMain.json
 ClashBot/clashData.db-journal
+ClashBot/clash_common_data/discord_exported_data.json
 
 # files I am working on and don't want uploaded
 *.wip
@@ -35,6 +36,9 @@ ClashBot/clashData.db-journal
 
 # IntelliJ
 *.idea
+
+# Thanks OS X
+.DS_Store
 
 # Used for moving files around :)
 rsync_command
