@@ -351,7 +351,7 @@ class FetchedDataProcessor(BasicDBOps):
 
             member_tag = member_entry['tag']
 
-            # either malformed API responses or I managed to pull data as someone left the clan
+            # for when I managed to pull data as someone left the clan
             if 'clan' in member_entry:
                 clan_tag = member_entry['clan']['tag']
                 clan_name = member_entry['clan']['name']
@@ -363,6 +363,19 @@ class FetchedDataProcessor(BasicDBOps):
                 member_role = None
                 print('member is not in a clan')
 
+            king_level = 0
+            queen_level = 0
+            warden_level = 0
+            if 'heroes' in member_entry:
+                for hero_entry in member_entry['heroes']:
+                    if hero_entry['name'] == 'Barbarian King':
+                        king_level = hero_entry['level']
+                    elif hero_entry['name'] == 'Archer Queen':
+                        queen_level = hero_entry['level']
+                    elif hero_entry['name'] == 'Grand Warden':
+                        warden_level = hero_entry['level']
+
+
             converted_member_data = {
                 'member_tag': member_entry['tag'],
                 'member_name': member_entry['name'],
@@ -371,7 +384,10 @@ class FetchedDataProcessor(BasicDBOps):
                 'town_hall_level': member_entry['townHallLevel'],
                 # 'in_clan_currently': True,
                 'last_updated_time': timestamp,
-                'clan_tag': clan_tag
+                'clan_tag': clan_tag,
+                'king_level': king_level,
+                'queen_level': queen_level,
+                'warden_level': warden_level,
             }
 
             # update members table
@@ -379,6 +395,7 @@ class FetchedDataProcessor(BasicDBOps):
 
             # update account names table
             self.add_account_name_to_db(member_added, member_entry['name'])
+
 
             converted_scanned_data = {
                 'member_tag': member_tag,
@@ -388,6 +405,9 @@ class FetchedDataProcessor(BasicDBOps):
                 'defenses_won': member_entry['defenseWins'],
                 'town_hall_level': member_entry['townHallLevel'],
                 'timestamp': timestamp,
+                'king_level': king_level,
+                'queen_level': queen_level,
+                'warden_level': warden_level,
             }
 
             if 'achievements' in member_entry:

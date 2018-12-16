@@ -17,6 +17,9 @@ class SCANNEDDATA(Base):
     attacks_won = Column(Integer)
     defenses_won = Column(Integer)
     town_hall_level = Column(SmallInteger)
+    king_level = Column(SmallInteger)
+    queen_level = Column(SmallInteger)
+    warden_level = Column(SmallInteger)
     timestamp = Column(Integer)
 
     # member = relationship("MEMBER",

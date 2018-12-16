@@ -18,6 +18,10 @@ class MEMBER(Base):
 #    wants_gift_reminder = Column(SmallInteger)
 #    wants_war_reminder = Column(SmallInteger)
 
+    king_level = Column(SmallInteger)
+    queen_level = Column(SmallInteger)
+    warden_level = Column(SmallInteger)
+
     member_name = Column(String(20))
 
     clan_tag = Column(String(20), ForeignKey('CLANS.clan_tag'))
