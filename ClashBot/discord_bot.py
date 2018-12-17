@@ -948,14 +948,14 @@ async def start_gathering_data():
             try:
                 await discord_client.send_message(bot_channel, "Getting data")
                 try:
-                    # await discord_client.loop.run_in_executor(None, data_fetcher.get_data_from_server)
-                    data_fetcher.get_data_from_server()
+                    await discord_client.loop.run_in_executor(None, data_fetcher.get_data_from_server)
+                    # data_fetcher.get_data_from_server()
                     await asyncio.sleep(1)
                 except Exception as e:
                     await discord_client.send_message(bot_channel, "get_data_from_server: {}".format(e))
                     raise
                 try:
-                    # data_valid = await discord_client.loop.run_in_executor(None, data_fetcher.validate_data)
+                    data_valid = await discord_client.loop.run_in_executor(None, data_fetcher.validate_data)
                     data_valid = data_fetcher.validate_data()
                 except IOError as e:
                     await discord_client.send_message(bot_channel, "The data file doesn't exist to validate {}".format(e))
@@ -966,9 +966,9 @@ async def start_gathering_data():
                 await asyncio.sleep(60)
                 try:
                     await discord_client.send_message(bot_channel, "trying again now")
-                    # await discord_client.loop.run_in_executor(None, data_fetcher.get_data_from_server)
+                    await discord_client.loop.run_in_executor(None, data_fetcher.get_data_from_server)
                     data_fetcher.get_data_from_server()
-                    # data_valid = await discord_client.loop.run_in_executor(None, data_fetcher.validate_data)
+                    data_valid = await discord_client.loop.run_in_executor(None, data_fetcher.validate_data)
                     data_valid = data_fetcher.validate_data()
                 except:
                     await discord_client.send_message(bot_channel, "Something is not working")
