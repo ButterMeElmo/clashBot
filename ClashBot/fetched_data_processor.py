@@ -690,7 +690,7 @@ class FetchedDataProcessor(BasicDBOps):
         raise Exception("Why are you asking for this id? No season matches it.")
 
     def process_season_historical_data(self, clan_tag=MyConfigBot.my_clan_tag):
-        # self.previous_processed_time
+
         full_run = False
         # do the current season and the previous one
         if self.initial_run:
@@ -782,7 +782,8 @@ class FetchedDataProcessor(BasicDBOps):
                     season_historical_data_instance.spells_donated = total_spells_donated
                     season_historical_data_instance.attacks_won = attacks_won
                     season_historical_data_instance.defenses_won = defenses_won
-                # self.session.flush()
+            print('done processing season')
+            # self.session.flush()
 
     def mark_successful_save(self):
         # todo make this the last data time instead of when we processed
@@ -805,10 +806,9 @@ class FetchedDataProcessor(BasicDBOps):
 
     def validate_seasons_in_db(self):
 
-        # todo change to false
-        full_run = True
+        full_run = False
         # do the current season and the previous one
-        if self.initial_run == 0:
+        if self.initial_run:
             full_run = True
 
         current_season_id = self.get_season_for_utc_timestamp(self.date_fetcher_formatter.get_utc_timestamp()).season_id
@@ -951,6 +951,10 @@ class FetchedDataProcessor(BasicDBOps):
             clan_game_end_time = clan_game.end_time
             clan_game_id = clan_game.clan_games_id
 
+            if not full_run and self.previous_processed_time_instance.time > clan_game_end_time:
+                # print("This clan game ended and we have processed since then, skipping")
+                continue
+
             print("Processing clan games #: " + str(clan_game_id))
 
             processing_time = self.date_fetcher_formatter.get_utc_timestamp()
@@ -1037,7 +1041,7 @@ class FetchedDataProcessor(BasicDBOps):
         self.validate_seasons_in_db()
 
         print('processing season data')
-        self.process_season_historical_data()
+        # self.process_season_historical_data()
 
         print('processing clan games data')
         self.process_clan_games_data()
