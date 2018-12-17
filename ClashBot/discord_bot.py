@@ -919,7 +919,7 @@ async def start_gathering_data():
     server = discord_client.get_server(MyConfigBot.server_id)
 
     discord_client.loop.create_task(send_out_gift_reminders(database_accessor))
-    discord_client.loop.create_task(send_out_war_reminders(database_accessor))
+    # discord_client.loop.create_task(send_out_war_reminders(database_accessor))
     # discord_client.loop.create_task(createRules())
 
     await discord_client.send_message(bot_channel, "Coming online")
