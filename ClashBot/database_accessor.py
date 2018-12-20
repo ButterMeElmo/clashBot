@@ -14,7 +14,7 @@ import dateutil
 import date_fetcher_formatter
 import config_strings
 
-from ClashBot import BasicDBOps, DatabaseSetup, DateFetcherFormatter, MyConfigBot
+from ClashBot import DateFetcherFormatter, MyConfigBot
 from ClashBot.models import DISCORDCLASHLINK, MEMBER, WARATTACK, WAR, DISCORDACCOUNT
 
 from sqlalchemy.sql.expression import func
@@ -1462,8 +1462,4 @@ if __name__ == "__main__":
     #result = getMembersWithScoreUnderThreshold(300)
     #print(result)
     # getMembersWithPoorWarPerformance()
-    db_path = "clashData.db"
-    db_session = DatabaseSetup.get_session(engine_string="sqlite:///" + db_path)
-    db_accessor = DatabaseAccessor(db_session)
-    result = db_accessor.get_all_members_without_discord()
-    print(result)
+    print("I'm running but have no tasks")

@@ -17,8 +17,6 @@ from ClashBot.models import ACCOUNTNAME, CLAN, MEMBER, SCANNEDDATA, WAR, WARATTA
     CALCULATEDTROOPSSPELLSSIEGE, SEASONHISTORICALDATA, CLANGAMESSCORE, WARPARTICIPATION, DISCORDACCOUNT, \
     DISCORDCLASHLINK, LASTPROCESSED
 
-from ClashBot import DatabaseSetup
-from ClashBot import BasicDBOps
 from ClashBot import MyConfigBot
 
 from sqlalchemy.sql.expression import func
