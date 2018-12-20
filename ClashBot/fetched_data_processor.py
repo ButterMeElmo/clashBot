@@ -23,22 +23,44 @@ from ClashBot import MyConfigBot
 
 from sqlalchemy.sql.expression import func
 
+from sqlalchemy import create_engine
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker, scoped_session
+from sqlalchemy.engine import Engine
+from sqlalchemy import event
+from ClashBot.models.meta import Base
 
-# todo - visualize code coverage in IDE
-
-def TEMPORARY_FIX_determine_war_key(prep_day_start, enemy_tag, friendly_tag):
-    return str(prep_day_start) + "-" + enemy_tag + "-" + friendly_tag
-
+from ClashBot import session_scope
 
 printed_already = False
 
 count_to_get_to = 0
 
 
-class FetchedDataProcessor(BasicDBOps):
+class FetchedDataProcessorHelper:
 
-    def __init__(self, data_directory="data"):
-        super().__init__()
+    @staticmethod
+    def save_data_helper():
+        with session_scope() as session:
+            fdp = FetchedDataProcessor(session)
+            return fdp.save_data()
+
+
+    @staticmethod
+    def last_processed_time_helper():
+        with session_scope() as session:
+            fdp = FetchedDataProcessor(session)
+            return fdp.session.query(LASTPROCESSED.time).filter(LASTPROCESSED.id==1).scalar()
+
+
+class FetchedDataProcessor:
+
+    def __init__(self, session):
+
+        self.session = session
+        # super().__init__(session)
+
+        data_directory = "data"
 
         if not os.path.exists(data_directory):
             print('No data to load')
@@ -47,292 +69,29 @@ class FetchedDataProcessor(BasicDBOps):
         self.data_directory = data_directory
         # todo should always be false unless we detect there is no time stamp in the db or the db doesn't exist?
 
-        if self.previous_processed_time_instance.time == 0:
+        self.previous_processed_time = self.session.query(LASTPROCESSED.time).filter(LASTPROCESSED.id == 1).scalar()
+        if self.previous_processed_time is None:
+            self.previous_processed_time = 0
+
+        if self.previous_processed_time == 0:
             print('Performing initial run!')
             self.initial_run = True
         else:
             self.initial_run = False
 
-        self.date_fetcher_formatter = DateFetcherFormatter()
+        # use these only on initial runs
+        # self.members = {} # member tag
+        # self.scanned_data = {} # member tag, scanned data time
+        # self.war_attacks = {} # member tag, war start time, opponent clan, attack number
+        # self.clans = {} # clan tag
+        # self.wars = {} # war start time, opponent clan
 
-        # self.members = {}
-        # self.scanned_data = {}
-        # self.clans = {}
-        # # self.account_names = {}
-
-    # importing data
-
-    def import_linked_accounts_to_db(self):
-
-        filename = 'clash_common_data/discord_exported_data.json'
-        if not os.path.exists(filename):
-            print('No discord data to load')
-            return
-
-        data = json.load(open(filename))
-        discord_properties = data['DISCORD_PROPERTIES']
-        discord_names = data['DISCORD_NAMES']
-
-        discord_account_instances = {}
-
-        # self.session.flush()
-
-        for discord_account in discord_properties:
-            discord_account_instance = DISCORDACCOUNT()
-            self.session.add(discord_account_instance)
-            discord_tag = discord_account['discordID']
-            discord_account_instance.discord_tag = discord_tag
-            discord_account_instance.is_troop_donator = discord_account['isDonator']
-            discord_account_instance.has_permission_to_set_war_status = discord_account['hasWarPerms']
-            discord_account_instance.time_last_checked_in = discord_account['lastCheckedTime']
-            discord_account_instances[discord_tag] = discord_account_instance
-
-        # self.session.flush()
-
-        for discord_name in discord_names:
-
-            discord_clash_link_instance = DISCORDCLASHLINK()
-            discord_clash_link_instance.account_order = discord_name['account_order']
-            clash_tag_looking_for = discord_name['member_tag']
-            found = False
-            for member_tag, member in self.members.items():
-                if member_tag == clash_tag_looking_for:
-                    discord_clash_link_instance.clash_account = member
-                    found = True
-
-            if not found:
-                continue
-
-            discord_tag = discord_name['discordID']
-            discord_clash_link_instance.discord_account = discord_account_instances[discord_tag]
-            self.session.add(discord_clash_link_instance)
-
-        # self.session.flush()
-
-    def import_trader_data_to_db(self):
-        pass
-
-    def import_clan_games_metadata(self):
-        # todo rename that file!!
-        clan_games = json.load(open('clash_common_data/clan_games_metadata.json'))
-        for clan_game in clan_games:
-
-            start_time = self.convert_supercell_timestamp_string_to_epoch(clan_game['startTime'])
-            stop_time = self.convert_supercell_timestamp_string_to_epoch(clan_game['stopTime'])
-            personal_cap = clan_game['personalCap']
-            top_tier_score = clan_game['topTierScore']
-            min_town_hall = 6
-
-            if 'minTownHall' in clan_game:
-                # todo investigate- is this always, never, sometimes there?
-                min_town_hall = clan_game['minTownHall']
-
-            clan_games_kwargs = {
-                'start_time': start_time,
-                'end_time': stop_time,
-                'top_tier_score': top_tier_score,
-                'personal_limit': personal_cap,
-                'min_town_hall': min_town_hall,
-            }
-            self.add_clan_games_to_db(**clan_games_kwargs)
-
-    # inserts only
-    def add_clan_to_db(self, clan_tag, clan_name):
-
-        if clan_tag is None:
-            raise Exception('wtf dude')
-
-        if clan_name is None:
-            raise Exception('wtf dude')
-
-        if clan_tag in self.clans:
-            clan_instance = self.clans[clan_tag]
-        else:
-            clan_instance = CLAN(clan_tag=clan_tag, clan_name=clan_name)
-            self.session.add(clan_instance)
-            # self.session.flush()
-            self.clans[clan_tag] = clan_instance
-
-        return clan_instance
-
-    def add_clan_games_to_db(self, **kwargs):
-
-        if 'start_time' not in kwargs:
-            raise Exception('start_time is required')
-
-        start_time = kwargs['start_time']
-
-        if start_time not in self.clan_games:
-            clan_game_to_add = CLANGAME(**kwargs)
-            self.session.add(clan_game_to_add)
-            # self.session.flush()
-            self.clan_games[start_time] = clan_game_to_add
-
-        return self.clan_games[start_time]
-
-    def add_or_update_member_in_db(self, data_time, **kwargs):
-
-        # print(kwargs)
-
-        if 'member_tag' not in kwargs:
-            raise Exception('member_tag is required')
-
-        # data time = last updated right???
-        if 'last_updated_time' not in kwargs:
-            raise Exception('last_updated_time is required')
-        #
-        # if 'clan_tag' not in kwargs:
-        #     raise Exception('clan_tag is required')
-
-        member_tag = kwargs['member_tag']
-        clan_tag = kwargs.pop('clan_tag')
-
-        #
-        # if member_tag in self.clans[clan_tag].members:
-        #     member_instance = self.clans[clan_tag].members[member_tag]
-        #     for key in kwargs:
-        #         member_instance.__dict__[key] = kwargs[key]
-        # else:
-        #     member_to_add = MEMBER(**kwargs)
-        #     self.clans[clan_tag].members[member_tag] = member_to_add
-
-        member_instance = None
-        if member_tag in self.members:
-            member_instance = self.members[member_tag]
-            for key in kwargs:
-                member_instance.__dict__[key] = kwargs[key]
-        else:
-            member_instance = MEMBER(**kwargs)
-            self.session.add(member_instance)
-            # self.session.flush()
-            self.members[member_tag] = member_instance
-
-        if clan_tag is not None:
-            member_instance.clan = self.clans[clan_tag]
-
-        return member_instance
-
-    def add_or_update_scanned_data_in_db(self, **kwargs):
-
-        if 'member_tag' not in kwargs:
-            raise Exception('member_tag is required')
-
-        if 'timestamp' not in kwargs:
-            raise Exception('timestamp is required')
-
-        member_tag = kwargs['member_tag']
-        timestamp = kwargs['timestamp']
-
-        if timestamp not in self.members[member_tag].scanned_data:
-            instance = SCANNEDDATA(**kwargs)
-            self.session.add(instance)
-            # self.session.flush()
-            self.members[member_tag].scanned_data[timestamp] = instance
-        else:
-            instance = self.members[member_tag].scanned_data[timestamp]
-            for key in kwargs:
-                instance.__dict__[key] = kwargs[key]
-
-        return instance
-
-    def add_account_name_to_db(self, member, member_name):
-
-        for account_name_instance in member.all_names:
-            if member_name == account_name_instance.account_name:
-                return
-
-        member.all_names.append(ACCOUNTNAME(account_name=member_name))
-
-        # # todo this could be an association proxy
-        # if member_name not in member.all_names:
-        #     member.all_names.append(ACCOUNTNAME(account_name=member_name))
-
-    def mark_member_as_not_in_clan(self, tag):
-        member_query = self.session.query(MEMBER).filter_by(member_tag=tag)
-        not_in_clan_kwargs = {
-            'in_clan_currently': 0
-        }
-        member_query.update(not_in_clan_kwargs)
-
-    # def add_war_attack_to_db(self, **kwargs):
-    #
-    #     if 'war_id' not in kwargs:
-    #         raise Exception('war_id is required')
-    #
-    #     if 'attacker_tag' not in kwargs:
-    #         raise Exception('attacker_tag is required')
-    #
-    #     if 'attacker_attack_number' not in kwargs:
-    #         raise Exception('attacker_attack_number is required')
-    #
-    #     war_id = kwargs['war_id']
-    #     attacker_tag = kwargs['attacker_tag']
-    #     attacker_attack_number = kwargs['attacker_attack_number']
-    #
-    #     key = TEMPORARY_FIX_determine_war_attack_key(war_id, attacker_tag, attacker_attack_number)
-    #
-    #     if key not in self.war_attacks:
-    #         # print('creating attack')
-    #         instance = WARATTACK(**kwargs)
-    #         self.war_attacks[key] = instance
-    #         #self.session.flush()
-    #     else:
-    #
-    #         if key == '':
-    #             print()
-    #
-    #         # print('updating attack')
-    #         instance = self.war_attacks[key]
-    #         for updating_key in kwargs:
-    #             instance.__dict__[updating_key] = kwargs[updating_key]
-    #
-    #     return instance
-
-    def update_season_times(self, season_id, start_time, end_time):
-        query = self.session.query(SEASON).filter_by(season_ID=season_id)
-        if query.first() is None:
-            # todo better exception
-            raise Exception("this season doesn't exist, can't update")
-
-        updated_season_kwargs = {
-            'start_time': start_time,
-            'end_time': end_time
-        }
-        self.query.update(updated_season_kwargs)
-
-    def process_player_achievement_files(self):
-        count = 0
-        scdf = SupercellDataFetcher()
-        for player_achievements_file in scdf.get_file_names(self.data_directory, 'clanPlayerAchievements', '.json',
-                                                            self.previous_processed_time_instance.time):
-            if os.path.exists(player_achievements_file):
-                print('processing: {}'.format(player_achievements_file))
-                entries = json.load(open(player_achievements_file))
-                for player_achievements_entry in entries:
-                    if self.previous_processed_time_instance.time < int(player_achievements_entry['timestamp'] / 1000):
-                        self.process_player_achievements(player_achievements_entry)
-
-                        # self.previous_processed_time_instance.time = int(player_achievements_entry['timestamp']/1000)
-
-                        count += 1
-                        if count_to_get_to != 0 and count_to_get_to == count:
-                            return
-
-    def process_clan_war_details_files(self):
-        count = 0
-        scdf = SupercellDataFetcher()
-        for clan_war_details_file in scdf.get_file_names(self.data_directory, 'warDetailsLog', '.json',
-                                                         self.previous_processed_time_instance.time):
-            if os.path.exists(clan_war_details_file):
-                print('processing: {}'.format(clan_war_details_file))
-                entries = json.load(open(clan_war_details_file))
-                for clan_war_details_entry in entries:
-                    if self.previous_processed_time_instance.time < int(clan_war_details_entry['timestamp'] / 1000):
-                        self.process_clan_war_details(clan_war_details_entry)
-
-                        count += 1
-                        if count_to_get_to != 0 and count_to_get_to == count:
-                            return
+        # todo where should this live
+    def convert_supercell_timestamp_string_to_epoch(self, time_as_string):
+        # print("inputting as as string: {}".format(time_as_string))
+        timestamp = dateutil.parser.parse(time_as_string).timestamp()
+        # print('outputting {}'.format(timestamp))
+        return int(timestamp)
 
     def process_player_achievements(self, clan_player_achievements_entry):
         """
@@ -340,11 +99,16 @@ class FetchedDataProcessor(BasicDBOps):
 
         :param clan_player_achievements_entry: a list of all achievements for all players
         """
+
         # add the scanned data timestamp
         timestamp = int(clan_player_achievements_entry['timestamp'] / 1000)
-        if "scanned_targets" not in clan_player_achievements_entry:
-            for _, member in self.members.items():
-                member.clan = None
+
+        # if "scanned_targets" not in clan_player_achievements_entry:
+        #     for _, member in self.members.items():
+        #         member.clan = None
+
+        all_members_query = self.session.query(MEMBER)
+        all_members_query.update({'clan': None})
 
         # iterate through each player
         for member_entry in clan_player_achievements_entry['members']:
@@ -356,7 +120,12 @@ class FetchedDataProcessor(BasicDBOps):
                 clan_tag = member_entry['clan']['tag']
                 clan_name = member_entry['clan']['name']
                 member_role = member_entry['role']
-                self.add_clan_to_db(clan_tag, clan_name)
+                clan_instance = self.session.query(CLAN).filter(CLAN.clan_tag == clan_tag).one_or_none()
+                if clan_instance is None:
+                    clan_instance = CLAN()
+                    clan_instance.clan_tag = clan_tag
+                    clan_instance.clan_name = clan_name
+                    self.session.add(clan_instance)
             else:
                 clan_tag = None
                 clan_name = None
@@ -376,51 +145,74 @@ class FetchedDataProcessor(BasicDBOps):
                         warden_level = hero_entry['level']
 
 
-            converted_member_data = {
-                'member_tag': member_entry['tag'],
-                'member_name': member_entry['name'],
-                'role': member_role,
-                'trophies': member_entry['trophies'],
-                'town_hall_level': member_entry['townHallLevel'],
-                # 'in_clan_currently': True,
-                'last_updated_time': timestamp,
-                'clan_tag': clan_tag,
-                'king_level': king_level,
-                'queen_level': queen_level,
-                'warden_level': warden_level,
-            }
+            member_instance = self.session.query(MEMBER).filter(MEMBER.member_tag == member_tag).one_or_none()
+            if member_instance is None:
+                member_instance = MEMBER()
+                member_instance.member_tag = member_tag
+                self.session.add(member_instance)
 
-            # update members table
-            member_added = self.add_or_update_member_in_db(timestamp, **converted_member_data)
+            member_instance.member_name = member_entry['name']
+            member_instance.role = member_role
+            member_instance.trophies = member_entry['trophies']
+            member_instance.town_hall_level = member_entry['townHallLevel']
+            member_instance.last_updated_time = timestamp
+            member_instance.clan_tag = clan_tag
+            member_instance.king_level = king_level
+            member_instance.queen_level = queen_level
+            member_instance.warden_level = warden_level
 
-            # update account names table
-            self.add_account_name_to_db(member_added, member_entry['name'])
-
-
-            converted_scanned_data = {
-                'member_tag': member_tag,
-                'troops_donated_monthly': member_entry['donations'],
-                'troops_received_monthly': member_entry['donationsReceived'],
-                'attacks_won': member_entry['attackWins'],
-                'defenses_won': member_entry['defenseWins'],
-                'town_hall_level': member_entry['townHallLevel'],
-                'timestamp': timestamp,
-                'king_level': king_level,
-                'queen_level': queen_level,
-                'warden_level': warden_level,
-            }
+            # todo - add the names back
+            # member_name = member_entry["name"]
+            # self.session.query(ACCOUNTNAME).filter()
+            # if member_name not in member_added.all_names:
+            #     member.all_names.append(ACCOUNTNAME(account_name=member_name))
 
             if 'achievements' in member_entry:
                 for achievements_entry in member_entry['achievements']:
                     if achievements_entry['name'] == 'Friend in Need':
-                        converted_scanned_data['troops_donated_achievement'] = achievements_entry['value']
+                        troops_donated_achievement = achievements_entry['value']
                     if achievements_entry['name'] == 'Sharing is caring':
-                        converted_scanned_data['spells_donated_achievement'] = achievements_entry['value']
+                        spells_donated_achievement = achievements_entry['value']
                     if achievements_entry['name'] == 'Games Champion':
-                        converted_scanned_data['clan_games_points_achievement'] = achievements_entry['value']
+                        clan_games_points_achievement = achievements_entry['value']
 
-            # add the scanned data to scanned data table
-            self.add_or_update_scanned_data_in_db(**converted_scanned_data)
+            scanned_data_instance = self.session.query(SCANNEDDATA).filter(SCANNEDDATA.member_tag==member_tag).filter(SCANNEDDATA.timestamp==timestamp).one_or_none()
+            if scanned_data_instance is None:
+                scanned_data_instance = SCANNEDDATA()
+                scanned_data_instance.member_tag = member_tag
+                scanned_data_instance.troops_donated_monthly = member_entry['donations']
+                scanned_data_instance.troops_received_monthly = member_entry['donationsReceived']
+                scanned_data_instance.attacks_won = member_entry['attackWins']
+                scanned_data_instance.defenses_won = member_entry['defenseWins']
+                scanned_data_instance.town_hall_level = member_entry['townHallLevel']
+                scanned_data_instance.timestamp = timestamp
+                scanned_data_instance.king_level = king_level
+                scanned_data_instance.queen_level = queen_level
+                scanned_data_instance.warden_level = warden_level
+                scanned_data_instance.troops_donated_achievement = troops_donated_achievement
+                scanned_data_instance.spells_donated_achievement = spells_donated_achievement
+                scanned_data_instance.clan_games_points_achievement = clan_games_points_achievement
+                self.session.add(scanned_data_instance)
+
+    def process_player_achievement_files(self):
+        count = 0
+        scdf = SupercellDataFetcher()
+        for player_achievements_file in scdf.get_file_names(self.data_directory, 'clanPlayerAchievements', '.json', self.previous_processed_time):
+            if os.path.exists(player_achievements_file):
+                print('processing: {}'.format(player_achievements_file))
+                start = time.time()
+
+                entries = json.load(open(player_achievements_file))
+                for player_achievements_entry in entries:
+                    if self.previous_processed_time < int(player_achievements_entry['timestamp'] / 1000):
+                        self.process_player_achievements(player_achievements_entry)
+
+                        # self.previous_processed_time_instance.time = int(player_achievements_entry['timestamp']/1000)
+                        count += 1
+                        if count_to_get_to != 0 and count_to_get_to == count:
+                            return
+                end = time.time()
+                print(end - start)
 
     def process_clan_war_details(self, war):
 
@@ -444,11 +236,18 @@ class FetchedDataProcessor(BasicDBOps):
         friendly_attacks = war['clan']['attacks']
         friendly_level = war['clan']['clanLevel']
 
-        self.add_clan_to_db(friendly_tag, friendly_name)
+        friendly_clan_instance = self.session.query(CLAN).filter(CLAN.clan_tag == friendly_tag).one_or_none()
+        if friendly_clan_instance is None:
+            friendly_clan_instance = CLAN()
+            friendly_clan_instance.clan_tag = friendly_tag
+            friendly_clan_instance.clan_name = friendly_name
+            self.session.add(friendly_clan_instance)
 
-        for _, member in self.members.items():
-            if member.clan_tag is None or member.clan_tag == friendly_tag:
-                member.in_war_currently = 0
+        all_members_no_clan = self.session.query(MEMBER).filter(MEMBER.clan_tag == None)
+        all_members_friendly_clan = self.session.query(MEMBER).filter(MEMBER.clan_tag == friendly_tag)
+
+        all_members_no_clan.update({'in_war_currently':0})
+        all_members_friendly_clan.update({'in_war_currently':0})
 
         opponent_name = war['opponent']['name']
         opponent_tag = war['opponent']['tag']
@@ -475,20 +274,23 @@ class FetchedDataProcessor(BasicDBOps):
             else:
                 status = 'tied'
 
-        self.add_clan_to_db(opponent_tag, opponent_name)
+        opponent_clan_instance = self.session.query(CLAN).filter(CLAN.clan_tag == opponent_tag).one_or_none()
+        if opponent_clan_instance is None:
+            opponent_clan_instance = CLAN()
+            opponent_clan_instance.clan_tag = opponent_tag
+            opponent_clan_instance.clan_name = opponent_name
+            self.session.add(opponent_clan_instance)
 
-        war_instance_key = TEMPORARY_FIX_determine_war_key(prep_start_time, opponent_tag, friendly_tag)
-        # print(war_instance_key)
-        if war_instance_key in self.wars:
-            war_instance = self.wars[war_instance_key]
-        else:
+        war_instance = self.session.query(WAR).filter(WAR.prep_day_start == prep_start_time) \
+            .filter(WAR.enemy_clan == opponent_clan_instance) \
+            .filter(WAR.friendly_clan == friendly_clan_instance).one_or_none()
+
+        if war_instance is None:
             war_instance = WAR()
-            war_instance.enemy_clan = self.clans[opponent_tag]
-            war_instance.friendly_clan = self.clans[friendly_tag]
+            war_instance.enemy_clan = opponent_clan_instance
+            war_instance.friendly_clan = friendly_clan_instance
             war_instance.prep_day_start = prep_start_time
             self.session.add(war_instance)
-            # self.session.flush()
-            self.wars[war_instance_key] = war_instance
 
         war_instance.result = status
         war_instance.friendly_stars = friendly_stars
@@ -507,13 +309,9 @@ class FetchedDataProcessor(BasicDBOps):
 
         possible_clan_types = ['clan', 'opponent']
 
-        # #self.session.flush()
-
         for clan_type in possible_clan_types:
             clan_tag = war['clan']['tag']
             for member in war[clan_type]['members']:
-
-                # #self.session.flush()
 
                 attack1 = None
                 attack2 = None
@@ -525,14 +323,11 @@ class FetchedDataProcessor(BasicDBOps):
 
                 if clan_type == 'clan':
 
-                    if member_tag in self.members:
-                        member_instance = self.members[member_tag]
-                    else:
+                    member_instance = self.session.query(MEMBER).filter(MEMBER.member_tag==member_tag).one_or_none()
+                    if member_instance is None:
                         member_instance = MEMBER()
                         member_instance.member_tag = member_tag
                         self.session.add(member_instance)
-                        # self.session.flush()
-                        self.members[member_tag] = member_instance
 
                     if not printed_already:
                         print('change this status string too...')
@@ -540,7 +335,7 @@ class FetchedDataProcessor(BasicDBOps):
                     if status == 'in progress':
                         # query = self.session.query(MEMBER).filter(MEMBER.member_tag == member_tag)
                         # query.update({'in_war_currently': 1})
-                        self.members[member_tag].in_war_currently = 1
+                        member_instance.in_war_currently = 1
 
                     if war_instance.clan_war_identifier in member_instance.war_participations:
                         war_participation_instance = member_instance.war_participations[
@@ -625,7 +420,98 @@ class FetchedDataProcessor(BasicDBOps):
                                 attack_2_instance.attack_occurred_before = data_time
                                 attack_2_instance.order_number = attack['order']
 
-    # having to manipulate data beyond simple converting from dict to class
+    def process_clan_war_details_files(self):
+        count = 0
+        scdf = SupercellDataFetcher()
+        for clan_war_details_file in scdf.get_file_names(self.data_directory, 'warDetailsLog', '.json', self.previous_processed_time):
+            if os.path.exists(clan_war_details_file):
+                print('processing: {}'.format(clan_war_details_file))
+                entries = json.load(open(clan_war_details_file))
+                for clan_war_details_entry in entries:
+                    if self.previous_processed_time < int(clan_war_details_entry['timestamp'] / 1000):
+                        self.process_clan_war_details(clan_war_details_entry)
+
+                        count += 1
+                        if count_to_get_to != 0 and count_to_get_to == count:
+                            return
+
+    def import_linked_accounts_to_db(self):
+
+        filename = 'clash_common_data/discord_exported_data.json'
+        if not os.path.exists(filename):
+            print('No discord data to load')
+            return
+
+        data = json.load(open(filename))
+        discord_properties = data['DISCORD_PROPERTIES']
+        discord_names = data['DISCORD_NAMES']
+
+        discord_account_instances = {}
+
+        # self.session.flush()
+
+        for discord_account in discord_properties:
+            discord_account_instance = DISCORDACCOUNT()
+            self.session.add(discord_account_instance)
+            discord_tag = discord_account['discordID']
+            discord_account_instance.discord_tag = discord_tag
+            discord_account_instance.is_troop_donator = discord_account['isDonator']
+            discord_account_instance.has_permission_to_set_war_status = discord_account['hasWarPerms']
+            discord_account_instance.time_last_checked_in = discord_account['lastCheckedTime']
+            discord_account_instances[discord_tag] = discord_account_instance
+
+        # self.session.flush()
+
+        members = self.session.query(MEMBER).all()
+
+        for discord_name in discord_names:
+
+            discord_clash_link_instance = DISCORDCLASHLINK()
+            discord_clash_link_instance.account_order = discord_name['account_order']
+            clash_tag_looking_for = discord_name['member_tag']
+            found = False
+            for member in members:
+                if member.member_tag == clash_tag_looking_for:
+                    discord_clash_link_instance.clash_account = member
+                    found = True
+
+            if not found:
+                continue
+
+            discord_tag = discord_name['discordID']
+            discord_clash_link_instance.discord_account = discord_account_instances[discord_tag]
+            self.session.add(discord_clash_link_instance)
+
+    def import_trader_data_to_db(self):
+        pass
+
+
+    def import_clan_games_metadata(self):
+
+        clan_games_metadata = json.load(open('clash_common_data/clan_games_metadata.json'))
+
+        clan_games = self.session.query(CLANGAME).all()
+        clan_game_start_times = set()
+        for clan_game_instance in clan_games:
+            clan_game_start_times.add(clan_game_instance.start_time)
+
+        for clan_game in clan_games_metadata:
+
+            start_time = self.convert_supercell_timestamp_string_to_epoch(clan_game['startTime'])
+            stop_time = self.convert_supercell_timestamp_string_to_epoch(clan_game['stopTime'])
+            personal_cap = clan_game['personalCap']
+            top_tier_score = clan_game['topTierScore']
+            min_town_hall = 6
+
+            if start_time not in clan_game_start_times:
+                clan_game_to_add = CLANGAME()
+                clan_game_to_add.start_time = start_time
+                clan_game_to_add.end_time = stop_time
+                clan_game_to_add.top_tier_score = top_tier_score
+                clan_game_to_add.personal_limit = personal_cap
+                clan_game_to_add.min_town_hall = min_town_hall
+                self.session.add(clan_game_to_add)
+
     def get_next_season_time_stamp(self, time_being_calculated_from, extra_month=False):
         date = datetime.datetime.utcfromtimestamp(time_being_calculated_from)
         aware_utc_dt = date.replace(tzinfo=pytz.utc)
@@ -661,167 +547,52 @@ class FetchedDataProcessor(BasicDBOps):
         stop_time = datetime.datetime.utcnow()
         aware_utc_dt = stop_time.replace(tzinfo=pytz.utc)
         aware_utc_dt = aware_utc_dt + datetime.timedelta(days=1)
+
+        all_seasons_start_times = set()
+        all_seasons_instances = self.session.query(SEASON).all()
+        for season_instance in all_seasons_instances:
+            all_seasons_start_times.add(int(season_instance.start_time))
+
         while start_time < aware_utc_dt.timestamp():
             end_time = self.get_next_season_time_stamp(start_time) - 1
 
-            if start_time not in self.seasons:
+            if int(start_time) not in all_seasons_start_times:
+                print('adding')
                 instance = SEASON()
-                instance.start_time = start_time
-                instance.end_time = end_time
+                instance.start_time = int(start_time)
+                instance.end_time = int(end_time)
                 self.session.add(instance)
-                # self.session.flush()
-                self.seasons[start_time] = instance
 
             start_time = end_time + 1
 
-    def get_season_for_utc_timestamp(self, timestamp):
-        instance = self.session.query(SEASON) \
-            .filter(SEASON.start_time <= timestamp) \
-            .filter(SEASON.end_time >= timestamp).one_or_none()
-        if instance:
-            return instance
-        else:
-            raise Exception("Why are you asking for this time? No season matches it.")
+    def validate_seasons_in_db(self):
 
-    def get_season_with_season_id(self, season_id):
-        for _, season in self.seasons.items():
-            if season.season_id == season_id:
-                return season
-        raise Exception("Why are you asking for this id? No season matches it.")
-
-    def process_season_historical_data(self, clan_tag=MyConfigBot.my_clan_tag):
+        season_query = self.session.query(SEASON)
 
         full_run = False
-        # do the current season and the previous one
         if self.initial_run:
             full_run = True
             print('performing full run')
 
-        current_season_id = self.get_season_for_utc_timestamp(self.date_fetcher_formatter.get_utc_timestamp()).season_id
-        # remember, range caps at the upper limit and does NOT run it, so +1 in this case :)
         if full_run:
-            iterable = range(1, current_season_id + 1)
+            print('full run')
+            season_query = season_query.filter(SEASON.season_id > 1)
         else:
-            previously_validated_season_id = self.get_season_for_utc_timestamp(self.previous_processed_time_instance.time).season_id
-            iterable = range(previously_validated_season_id, current_season_id + 1)
-        for season_id in iterable:
-            print('processing a season: {}'.format(season_id))
-            season_being_processed = self.get_season_with_season_id(season_id)
-            season_start_time = season_being_processed.start_time
-            season_end_time = season_being_processed.end_time
+            last_season_instance = self.session.query(SEASON) \
+                .filter(SEASON.start_time <= self.previous_processed_time) \
+                .filter(SEASON.end_time >= self.previous_processed_time).one_or_none()
+            if last_season_instance is None:
+                raise Exception("Why are you asking for this time? No season matches it.")
 
-            for member_tag in self.members:
-                member_instance = self.members[member_tag]
-                if not full_run and member_instance.clan_tag != clan_tag:
-                    continue
+            season_query = season_query.filter(SEASON.season_id >= last_season_instance.season_id - 1)
 
-                debug = False
-                if debug:
-                    print('processing member: {}'.format(member_tag))
+        season_instances = season_query.all()
 
-                # get all datapoints for them that fall within the season times
-                # all_scanned_data = member_instance.get_all_scanned_data_between_timestamps(season_start_time, season_end_time)
-                all_scanned_data = self.session.query(SCANNEDDATA) \
-                    .filter(SCANNEDDATA.member_tag == member_tag) \
-                    .filter(SCANNEDDATA.timestamp >= season_start_time) \
-                    .filter(SCANNEDDATA.timestamp <= season_end_time).all()
-                if len(all_scanned_data) == 0:
-                    # this member wasn't here during this period
-                    continue
-                elif len(all_scanned_data) == 1:
-                    scanned_data_instance = all_scanned_data[0]
-                    total_troops_donated = scanned_data_instance.troops_donated_monthly
-                    total_troops_received = scanned_data_instance.troops_received_monthly
-                    attacks_won = scanned_data_instance.attacks_won
-                    defenses_won = scanned_data_instance.defenses_won
-                    total_spells_donated = None
-                else:
-                    total_troops_donated = 0
-                    total_troops_received = 0
-                    current_iteration_donated = 0
-                    current_iteration_received = 0
-                    for scanned_data_instance in all_scanned_data:
-                        if debug:
-                            print(scanned_data_instance)
-                        # the attack and win values are used since we only want the last value after the loop
-                        troops_donated = scanned_data_instance.troops_donated_monthly
-                        troops_received = scanned_data_instance.troops_received_monthly
-                        attacks_won = scanned_data_instance.attacks_won
-                        defenses_won = scanned_data_instance.defenses_won
-                        if troops_donated < current_iteration_donated or troops_received < current_iteration_received:
-                            total_troops_donated += current_iteration_donated
-                            total_troops_received += current_iteration_received
-                        current_iteration_donated = troops_donated
-                        current_iteration_received = troops_received
-                    total_troops_donated += current_iteration_donated
-                    total_troops_received += current_iteration_received
+        prev_instance = season_instances[0]
+        for season_instance in season_instances[1:]:
+            print('validating a season: {}'.format(season_instance.season_id))
 
-                    total_spells_donated = None
-                    initial_spells_donated = all_scanned_data[0].spells_donated_achievement
-                    final_spells_donated = all_scanned_data[-1].spells_donated_achievement
-                    if initial_spells_donated is not None and final_spells_donated is not None:
-                        total_spells_donated = final_spells_donated - initial_spells_donated
-                    total_troops_donated -= total_spells_donated
-
-                season_historical_data_instance = self.session.query(SEASONHISTORICALDATA) \
-                    .filter(SEASONHISTORICALDATA.season_id == season_being_processed.season_id) \
-                    .filter(SEASONHISTORICALDATA.member_tag == member_tag).one_or_none()
-                if season_historical_data_instance is None:
-                    calculation_to_add = SEASONHISTORICALDATA(season=season_being_processed,
-                                                              member_tag=member_tag
-                                                              )
-                    calculation_to_add.troops_donated = total_troops_donated
-                    calculation_to_add.troops_received = total_troops_received
-                    calculation_to_add.spells_donated = total_spells_donated
-                    calculation_to_add.attacks_won = attacks_won
-                    calculation_to_add.defenses_won = defenses_won
-                    self.session.add(calculation_to_add)
-                else:
-                    season_historical_data_instance.troops_donated = total_troops_donated
-                    season_historical_data_instance.troops_received = total_troops_received
-                    season_historical_data_instance.spells_donated = total_spells_donated
-                    season_historical_data_instance.attacks_won = attacks_won
-                    season_historical_data_instance.defenses_won = defenses_won
-            print('done processing season')
-            # self.session.flush()
-
-    def mark_successful_save(self):
-        # todo make this the last data time instead of when we processed
-        # print('not marking as successful, do not forget!')
-        self.previous_processed_time_instance.time = self.date_fetcher_formatter.get_utc_timestamp()
-
-    def mark_members_no_longer_active(self, profile):
-        member_tags_previously_active = self.get_all_members_tag_supposedly_in_clan()
-
-        active_tags = []
-        for member in profile['memberList']:
-            active_tags.append(member['tag'])
-
-        for tag in member_tags_previously_active:
-            if tag not in active_tags:
-                self.mark_member_as_not_in_clan(tag)
-
-    def DEBUG_ONLY_get_member_name_from_member_tag(self, tag):
-        return self.session.query(MEMBER).filter_by(member_tag=tag).first().name
-
-    def validate_seasons_in_db(self):
-
-        full_run = False
-        # do the current season and the previous one
-        if self.initial_run:
-            full_run = True
-
-        current_season_id = self.get_season_for_utc_timestamp(self.date_fetcher_formatter.get_utc_timestamp()).season_id
-        # remember, range caps at the upper limit and does NOT run it, so +1 in this case :)
-        if full_run:
-            iterable = range(2, current_season_id + 1)
-        else:
-            previously_validated_season_id = self.get_season_for_utc_timestamp(self.previous_processed_time_instance.time).season_id
-            iterable = range(previously_validated_season_id, current_season_id + 1)
-        for season_id in iterable:
-            print('validating a season: {}'.format(season_id))
-
-            season = self.session.query(SEASON).filter(SEASON.season_id == season_id).one_or_none()
+            season = self.session.query(SEASON).filter(SEASON.season_id == season_instance.season_id).one_or_none()
             if season is None:
                 raise ValueError('This season does not have proper start and end times')
             season_start_time = season.start_time
@@ -880,20 +651,113 @@ class FetchedDataProcessor(BasicDBOps):
                         new_end = midpoint - 1
                         new_start = midpoint
 
-                        query = self.session.query(SEASON).filter(SEASON.season_id == season_id)
-                        updating_kwargs = {
-                            'start_time': new_start
-                        }
-                        query.update(updating_kwargs)
-
-                        query = self.session.query(SEASON).filter(SEASON.season_id == season_id - 1)
-                        updating_kwargs = {
-                            'end_time': new_end
-                        }
-                        query.update(updating_kwargs)
+                        season_instance.start_time = new_start
+                        prev_instance.end_time = new_end
 
                     break
                 previous_timestamp = timestamp
+
+    def process_season_historical_data(self, clan_tag_to_scan=MyConfigBot.my_clan_tag):
+
+        member_query = self.session.query(MEMBER)
+        season_query = self.session.query(SEASON)
+
+        full_run = False
+        if self.initial_run:
+            full_run = True
+            print('performing full run')
+
+        if not full_run:
+
+            last_season_instance = self.session.query(SEASON) \
+                .filter(SEASON.start_time <= self.previous_processed_time) \
+                .filter(SEASON.end_time >= self.previous_processed_time).one_or_none()
+            if last_season_instance is None:
+                raise Exception("Why are you asking for this time? No season matches it.")
+
+            season_query = season_query.filter(SEASON.season_id >= last_season_instance.season_id)
+
+            if clan_tag_to_scan is not None:
+                member_query = member_query.filter(MEMBER.clan_tag == clan_tag_to_scan)
+
+        member_instances = member_query.all()
+        season_instances = season_query.all()
+
+        for season_instance in season_instances:
+            print('processing a season: {}'.format(season_instance.season_id))
+            season_start_time = season_instance.start_time
+            season_end_time = season_instance.end_time
+
+            for member_instance in member_instances:
+
+                debug = False
+                if debug:
+                    print('processing member: {}'.format(member_instance.member_tag))
+
+                # get all datapoints for them that fall within the season times
+                # all_scanned_data = member_instance.get_all_scanned_data_between_timestamps(season_start_time, season_end_time)
+                all_scanned_data = self.session.query(SCANNEDDATA) \
+                    .filter(SCANNEDDATA.member_tag == member_instance.member_tag) \
+                    .filter(SCANNEDDATA.timestamp >= season_start_time) \
+                    .filter(SCANNEDDATA.timestamp <= season_end_time).all()
+                if len(all_scanned_data) == 0:
+                    # this member wasn't here during this period
+                    continue
+                elif len(all_scanned_data) == 1:
+                    scanned_data_instance = all_scanned_data[0]
+                    total_troops_donated = scanned_data_instance.troops_donated_monthly
+                    total_troops_received = scanned_data_instance.troops_received_monthly
+                    attacks_won = scanned_data_instance.attacks_won
+                    defenses_won = scanned_data_instance.defenses_won
+                    total_spells_donated = None
+                else:
+                    total_troops_donated = 0
+                    total_troops_received = 0
+                    current_iteration_donated = 0
+                    current_iteration_received = 0
+                    for scanned_data_instance in all_scanned_data:
+                        if debug:
+                            print(scanned_data_instance)
+                        # the attack and win values are used since we only want the last value after the loop
+                        troops_donated = scanned_data_instance.troops_donated_monthly
+                        troops_received = scanned_data_instance.troops_received_monthly
+                        attacks_won = scanned_data_instance.attacks_won
+                        defenses_won = scanned_data_instance.defenses_won
+                        if troops_donated < current_iteration_donated or troops_received < current_iteration_received:
+                            total_troops_donated += current_iteration_donated
+                            total_troops_received += current_iteration_received
+                        current_iteration_donated = troops_donated
+                        current_iteration_received = troops_received
+                    total_troops_donated += current_iteration_donated
+                    total_troops_received += current_iteration_received
+
+                    total_spells_donated = None
+                    initial_spells_donated = all_scanned_data[0].spells_donated_achievement
+                    final_spells_donated = all_scanned_data[-1].spells_donated_achievement
+                    if initial_spells_donated is not None and final_spells_donated is not None:
+                        total_spells_donated = final_spells_donated - initial_spells_donated
+                    total_troops_donated -= total_spells_donated
+
+                season_historical_data_instance = self.session.query(SEASONHISTORICALDATA) \
+                    .filter(SEASONHISTORICALDATA.season_id == season_instance.season_id) \
+                    .filter(SEASONHISTORICALDATA.member_tag == member_instance.member_tag).one_or_none()
+                if season_historical_data_instance is None:
+                    calculation_to_add = SEASONHISTORICALDATA(season=season_instance,
+                                                              member_tag=member_instance.member_tag
+                                                              )
+                    calculation_to_add.troops_donated = total_troops_donated
+                    calculation_to_add.troops_received = total_troops_received
+                    calculation_to_add.spells_donated = total_spells_donated
+                    calculation_to_add.attacks_won = attacks_won
+                    calculation_to_add.defenses_won = defenses_won
+                    self.session.add(calculation_to_add)
+                else:
+                    season_historical_data_instance.troops_donated = total_troops_donated
+                    season_historical_data_instance.troops_received = total_troops_received
+                    season_historical_data_instance.spells_donated = total_spells_donated
+                    season_historical_data_instance.attacks_won = attacks_won
+                    season_historical_data_instance.defenses_won = defenses_won
+            print('done processing season')
 
     def get_min_allowable_time_for_clan_game_data(self, current_games_id):
         """
@@ -933,45 +797,43 @@ class FetchedDataProcessor(BasicDBOps):
                     result = clan_game.start_time - 1
         return result
 
-
     def process_clan_games_data(self, clan_tag_to_scan=MyConfigBot.my_clan_tag):
         # todo
         # automate clan games start and end time detection
         # bring in the borders of this to first scan before and after clan games started
         # stop it from scanning all clan games
 
+        clan_games_query = self.session.query(CLANGAME)
+        member_query = self.session.query(MEMBER)
+
         full_run = False
         if self.initial_run:
             full_run = True
+            print('performing full run')
 
-        for _, clan_game in self.clan_games.items():
+        if not full_run:
+            clan_games_query = clan_games_query.filter(CLANGAME.end_time > self.previous_processed_time)
+            if clan_tag_to_scan is not None:
+                member_query = member_query.filter(MEMBER.clan_tag == clan_tag_to_scan)
+
+        clan_games_query = clan_games_query.filter(CLANGAME.start_time <= DateFetcherFormatter.get_utc_timestamp())
+
+        clan_games_instances = clan_games_query.all()
+        member_instances = member_query.all()
+
+        for clan_games_instance in clan_games_instances:
 
             # scanned data has millisecond precision, should probably change that
-            clan_game_start_time = clan_game.start_time
-            clan_game_end_time = clan_game.end_time
-            clan_game_id = clan_game.clan_games_id
-
-            if not full_run and self.previous_processed_time_instance.time > clan_game_end_time:
-                # print("This clan game ended and we have processed since then, skipping")
-                continue
+            clan_game_start_time = clan_games_instance.start_time
+            clan_game_end_time = clan_games_instance.end_time
+            clan_game_id = clan_games_instance.clan_games_id
 
             print("Processing clan games #: " + str(clan_game_id))
-
-            processing_time = self.date_fetcher_formatter.get_utc_timestamp()
-            if clan_game_start_time > processing_time:
-                print("This clan games hasn't started yet")
-                continue
-
-            if full_run:
-                member_tags_to_scan = self.members.keys()
-            else:
-                member_tags_to_scan = [ member_tag for member_tag, member in self.members.items() if member.clan_tag == clan_tag_to_scan]
 
             min_allowable_time_for_clan_game_data = self.get_min_allowable_time_for_clan_game_data(clan_game_id)
             max_allowable_time_for_clan_game_data = self.get_max_allowable_time_for_clan_game_data(clan_game_id)
 
-            for member_tag in member_tags_to_scan:
-                member_instance = self.members[member_tag]
+            for member_instance in member_instances:
 
                 all_scanned_data_relevant_to_clan_game_for_member_query = self.session.query(SCANNEDDATA) \
                     .filter(SCANNEDDATA.member_tag == member_instance.member_tag) \
@@ -994,7 +856,7 @@ class FetchedDataProcessor(BasicDBOps):
 
                 clan_games_score_instance = self.session.query(CLANGAMESSCORE) \
                     .filter(CLANGAMESSCORE.member_tag == member_instance.member_tag) \
-                    .filter(CLANGAMESSCORE.clan_games_id == clan_game.clan_games_id).one_or_none()
+                    .filter(CLANGAMESSCORE.clan_games_id == clan_games_instance.clan_games_id).one_or_none()
 
                 if clan_games_score_instance:
                     clan_games_score_instance.score = points_scored
@@ -1002,8 +864,18 @@ class FetchedDataProcessor(BasicDBOps):
                     clan_games_score_to_add = CLANGAMESSCORE()
                     clan_games_score_to_add.member = member_instance
                     clan_games_score_to_add.score = points_scored
-                    clan_games_score_to_add.clan_game = clan_game
+                    clan_games_score_to_add.clan_game = clan_games_instance
                     self.session.add(clan_games_score_to_add)
+
+    def mark_successful_save(self):
+        # todo make this the last data time instead of when we processed
+        time_to_set = DateFetcherFormatter.get_utc_timestamp()
+        previous_processed_time_instance = self.session.query(LASTPROCESSED).filter(LASTPROCESSED.id==1).one_or_none()
+        if previous_processed_time_instance is None:
+            previous_processed_time_instance = LASTPROCESSED()
+            self.session.add(previous_processed_time_instance)
+        previous_processed_time_instance.time = time_to_set
+        return time_to_set
 
     # reading data into database
     def save_data(self):
@@ -1041,35 +913,24 @@ class FetchedDataProcessor(BasicDBOps):
         self.validate_seasons_in_db()
 
         print('processing season data')
-        # self.process_season_historical_data()
+        self.process_season_historical_data()
 
         print('processing clan games data')
         self.process_clan_games_data()
 
-        print('marking save successful')
-        self.mark_successful_save()
+        print('marking save successful, then committing')
+        return self.mark_successful_save()
 
         # save our changes
-        print('committing')
-        self.session.commit()
+        print('done, will attempt to commit')
+        # self.session.commit()
+
 
 def init():
     if __name__ == "__main__":
-        fdp = FetchedDataProcessor(data_directory=MyConfigBot.testing_data_dir)
-        fdp.save_data()
+        with session_scope() as session:
+            fdp = FetchedDataProcessor(session)
+            fdp.save_data()
 
 
 init()
-
-
-# def processClanProfile(self, clanProfile, cursor):
-# # do I even need this?
-#     pass
-
-# def attemptToFindSiegeMachinesSinceLastProcessed(self, cursor, previous_processed_time_instance):
-#     pass
-
-
-#
-#
-

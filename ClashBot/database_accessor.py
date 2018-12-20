@@ -27,7 +27,11 @@ class NoDataDuringTimeSpanException(Exception):
     pass
 
 
-class DatabaseAccessor(BasicDBOps):
+class DatabaseAccessor:
+
+    def __init__(self, session):
+
+        self.session = session
 
     def get_discord_ids_of_members_who_are_th12(self, clan_tag=MyConfigBot.my_clan_tag):
         discord_clash_links = self.session.query(DISCORDCLASHLINK) \

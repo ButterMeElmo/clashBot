@@ -7,7 +7,7 @@ import datetime
 import pytz
 from discord.ext import commands
 #import clashWebServer
-from ClashBot import FetchedDataProcessor, DatabaseAccessor, DateFetcherFormatter, MyConfigBot, SupercellDataFetcher, DatabaseSetup
+from ClashBot import FetchedDataProcessor, DatabaseAccessor, DateFetcherFormatter, MyConfigBot, SupercellDataFetcher, FetchedDataProcessorHelper
 from my_help_formatter import MyHelpFormatter, _default_help_command
 # import clashAccessData
 # import MyConfigBot
@@ -17,6 +17,8 @@ import config_options
 import clash_convert_data_to_string
 import json
 
+from ClashBot import session_scope
+
 # make this come from config
 botChannelID = MyConfigBot.testingChannelID
 
@@ -25,12 +27,11 @@ discord_client.remove_command('help')
 discord_client.command(**discord_client.help_attrs)(_default_help_command)
 
 server = None
+last_updated_data_time = 0
 
 leader_nickname = MyConfigBot.leader_nickname
 
 data_fetcher = SupercellDataFetcher()
-fetched_data_processor = FetchedDataProcessor(data_directory=MyConfigBot.testing_data_dir)
-database_accessor = DatabaseAccessor()
 
 @discord_client.event
 async def on_member_join(member):
@@ -65,15 +66,17 @@ async def test(ctx):
 async def fetch(ctx):
     await discord_client.say('Working on it...')
     time_checking = add_time_to_check()
-    while fetched_data_processor.previous_processed_time_instance.time < time_checking:
+    while last_updated_data_time < time_checking:
         await asyncio.sleep(1)
 
 
 @discord_client.command(pass_context=True)
 @commands.has_role("developers")
 async def save(ctx):
-    fetched_data_processor.save_data()
-    await discord_client.say('Saved')
+    with session_scope() as session:
+        fetched_data_processor = FetchedDataProcessor(session)
+        fetched_data_processor.save_data()
+        await discord_client.say('Saved')
 
 
 @discord_client.command(pass_context=True)
@@ -161,99 +164,99 @@ class AccountManagement:
     async def link_accounts_beta(self, ctx, discord_id=None):
         """Link your Clash accounts to your discord account"""
         print('starting link')
-        if discord_id is None:
-            discord_id = ctx.message.author.id
-        more_accounts_to_add = True
-        successful_accounts = 0
-        has_checked_if_should_refresh = False
-        while more_accounts_to_add == True:
-            await discord_client.say(' \n\nPlease enter your clash account name:')
-            message = await discord_client.wait_for_message(author=ctx.message.author)
-            member_name = message.content.upper()
-            result = database_accessor.link_discord_account(discord_id, member_name, is_name=True)
-            await discord_client.say(result)
-            if result == config_strings.successfully_linked_string:
-                successful_accounts += 1
-                message = await discord_client.say("Do you have more clash accounts to add?\n")
-                await discord_client.add_reaction(message, config_strings.checkmark)
-                await discord_client.add_reaction(message, config_strings.xmark)
-                result = await discord_client.wait_for_reaction([config_strings.checkmark, config_strings.xmark], message=message, user=ctx.message.author)
-                more_accounts_to_add = (
-                    result.reaction.emoji == config_strings.checkmark)
-            elif result == config_strings.unable_to_find_account_string:
-                hit_check = False
-                if has_checked_if_should_refresh == False:
-                    message = await discord_client.say("Was this account added to the clan in the last hour?")
+        with session_scope() as session:
+            database_accessor = DatabaseAccessor(session)
+            if discord_id is None:
+                discord_id = ctx.message.author.id
+            more_accounts_to_add = True
+            successful_accounts = 0
+            has_checked_if_should_refresh = False
+            while more_accounts_to_add == True:
+                await discord_client.say(' \n\nPlease enter your clash account name:')
+                message = await discord_client.wait_for_message(author=ctx.message.author)
+                member_name = message.content.upper()
+                result = database_accessor.link_discord_account(discord_id, member_name, is_name=True)
+                await discord_client.say(result)
+                if result == config_strings.successfully_linked_string:
+                    successful_accounts += 1
+                    message = await discord_client.say("Do you have more clash accounts to add?\n")
                     await discord_client.add_reaction(message, config_strings.checkmark)
                     await discord_client.add_reaction(message, config_strings.xmark)
                     result = await discord_client.wait_for_reaction([config_strings.checkmark, config_strings.xmark], message=message, user=ctx.message.author)
-                    hit_check = (result.reaction.emoji ==
-                                 config_strings.checkmark)
-                    has_checked_if_should_refresh = True
-                if hit_check:
-                    # force data update
-                    await discord_client.say("Please wait while I refresh my data on the clan!")
-                    time_checking = add_time_to_check()
-                    while fetched_data_processor.previous_processed_time_instance.time < time_checking:
-                        await asyncio.sleep(1)
-                    await discord_client.say("Data has been refreshed. Enter the account name again in a moment when prompted.")
+                    more_accounts_to_add = (
+                        result.reaction.emoji == config_strings.checkmark)
+                elif result == config_strings.unable_to_find_account_string:
+                    hit_check = False
+                    if has_checked_if_should_refresh == False:
+                        message = await discord_client.say("Was this account added to the clan in the last hour?")
+                        await discord_client.add_reaction(message, config_strings.checkmark)
+                        await discord_client.add_reaction(message, config_strings.xmark)
+                        result = await discord_client.wait_for_reaction([config_strings.checkmark, config_strings.xmark], message=message, user=ctx.message.author)
+                        hit_check = (result.reaction.emoji == config_strings.checkmark)
+                        has_checked_if_should_refresh = True
+                    if hit_check:
+                        # force data update
+                        await discord_client.say("Please wait while I refresh my data on the clan!")
+                        time_checking = add_time_to_check()
+                        while last_updated_data_time < time_checking:
+                            await asyncio.sleep(1)
+                        await discord_client.say("Data has been refreshed. Enter the account name again in a moment when prompted.")
+                    else:
+                        message = await discord_client.say("Do you want to try entering this account again? If you cannot find this account, please ask {}.".format(leader_nickname))
+                        await discord_client.add_reaction(message, config_strings.checkmark)
+                        await discord_client.add_reaction(message, config_strings.xmark)
+                        result = await discord_client.wait_for_reaction([config_strings.checkmark, config_strings.xmark], message=message, user=ctx.message.author)
+                        hit_check = (result.reaction.emoji == config_strings.checkmark)
+                        if not hit_check:
+                            # no desire to continute
+
+                            if successful_accounts > 0:
+                                more_accounts_to_add = False
+                            else:
+                                await discord_client.say("Please let {} know that you were unable to resolve your issue.\n".format(leader_nickname))
+                                return
                 else:
-                    message = await discord_client.say("Do you want to try entering this account again? If you cannot find this account, please ask {}.".format(leader_nickname))
+                    await discord_client.say("Please restart this command with !linkmyaccount\n")
+                    return
+
+            # check if linked accounts contain one above TH 8
+            allowed_to_donate = database_accessor.has_linked_account_with_th_larger_than(discord_id, config_options.minTHRequiredToBeADonator-1)
+
+            if allowed_to_donate:
+
+                has_configured_is_troop_donator = database_accessor.has_configured_is_troop_donator(discord_id)
+
+                if not has_configured_is_troop_donator:
+                    message = await discord_client.say("Now that you have linked your account(s), would you like to become a troop donator? This means that during war, when people use the @troopdonator tag, you'll get a notification from discord, asking for troops.\n")
                     await discord_client.add_reaction(message, config_strings.checkmark)
                     await discord_client.add_reaction(message, config_strings.xmark)
                     result = await discord_client.wait_for_reaction([config_strings.checkmark, config_strings.xmark], message=message, user=ctx.message.author)
-                    hit_check = (result.reaction.emoji ==
-                                 config_strings.checkmark)
-                    if not hit_check:
-                        # no desire to continute
+                    if result.reaction.emoji == config_strings.checkmark:
+                        result_string = self.process_role_request(discord_id, 1)
+                    else:
+                        result_string = self.process_role_request(discord_id, 0)
+                    await discord_client.say(result_string)
 
-                        if successful_accounts > 0:
-                            more_accounts_to_add = False
-                        else:
-                            await discord_client.say("Please let {} know that you were unable to resolve your issue.\n".format(leader_nickname))
-                            return
-            else:
-                await discord_client.say("Please restart this command with !linkmyaccount\n")
-                return
+            general_channel = discord_client.get_channel(MyConfigBot.generalChannelID)
+            bot_channel = discord_client.get_channel(MyConfigBot.testingChannelID)
+            try:
+                await update_roles()
+                await discord_client.send_message(bot_channel, "Applied roles")
+            except:
+                await discord_client.send_message(bot_channel, "Failed to apply roles")
 
-        # check if linked accounts contain one above TH 8
-        allowed_to_donate = database_accessor.has_linked_account_with_th_larger_than(discord_id, config_options.minTHRequiredToBeADonator-1)
-
-        if allowed_to_donate:
-
-            has_configured_is_troop_donator = database_accessor.has_configured_is_troop_donator(discord_id)
-
-            if not has_configured_is_troop_donator:
-                message = await discord_client.say("Now that you have linked your account(s), would you like to become a troop donator? This means that during war, when people use the @troopdonator tag, you'll get a notification from discord, asking for troops.\n")
-                await discord_client.add_reaction(message, config_strings.checkmark)
-                await discord_client.add_reaction(message, config_strings.xmark)
-                result = await discord_client.wait_for_reaction([config_strings.checkmark, config_strings.xmark], message=message, user=ctx.message.author)
-                if result.reaction.emoji == config_strings.checkmark:
-                    result_string = self.process_role_request(discord_id, 1)
-                else:
-                    result_string = self.process_role_request(discord_id, 0)
-                await discord_client.say(result_string)
-
-        general_channel = discord_client.get_channel(MyConfigBot.generalChannelID)
-        bot_channel = discord_client.get_channel(MyConfigBot.testingChannelID)
-        try:
-            await update_roles(database_accessor)
-            await discord_client.send_message(bot_channel, "Applied roles")
-        except:
-            await discord_client.send_message(bot_channel, "Failed to apply roles")
-
-        introduction_string = 'Your account(s) are all set up!\n'
-        introduction_string += 'During war, you may use @troopdonators to request troops for war.\n'
-        rules_channel = server.get_channel(MyConfigBot.rulesChannelID)
-        introduction_string += 'Please see {} for the clan rules.\n'.format(
-            rules_channel.mention)
-        war_channel = server.get_channel(MyConfigBot.warChannelID)
-        introduction_string += 'Finally, we have a {} channel for discussing war.\n'.format(
-            war_channel.mention)
-        leader = server.get_member(MyConfigBot.leaderDiscordID)
-        introduction_string += 'If you have any questions, please ask @{}!'.format(
-            leader.nick)
-        await discord_client.say(introduction_string)
+            introduction_string = 'Your account(s) are all set up!\n'
+            introduction_string += 'During war, you may use @troopdonators to request troops for war.\n'
+            rules_channel = server.get_channel(MyConfigBot.rulesChannelID)
+            introduction_string += 'Please see {} for the clan rules.\n'.format(
+                rules_channel.mention)
+            war_channel = server.get_channel(MyConfigBot.warChannelID)
+            introduction_string += 'Finally, we have a {} channel for discussing war.\n'.format(
+                war_channel.mention)
+            leader = server.get_member(MyConfigBot.leaderDiscordID)
+            introduction_string += 'If you have any questions, please ask @{}!'.format(
+                leader.nick)
+            await discord_client.say(introduction_string)
 
     @commands.command(name='linkmyaccountold', hidden=True, pass_context=True,  brief='Connect your discord to a clash account')
     async def linkAccounts(self, ctx, *, member_name):
@@ -295,29 +298,30 @@ class AccountManagement:
 
     @commands.command(name='changemydonatorstatus', pass_context=True,  brief='Request to become or stop being a @troopdonator.')
     async def add_donator_role(self, ctx):
+        with session_scope() as session:
+            database_accessor = DatabaseAccessor(session)
+            message = await discord_client.say('Would you like to be a troopdonator?')
 
-        message = await discord_client.say('Would you like to be a troopdonator?')
+            discord_id = ctx.message.author.id
 
-        discord_id = ctx.message.author.id
+            await discord_client.add_reaction(message, config_strings.checkmark)
+            await discord_client.add_reaction(message, config_strings.xmark)
 
-        await discord_client.add_reaction(message, config_strings.checkmark)
-        await discord_client.add_reaction(message, config_strings.xmark)
+            result = await discord_client.wait_for_reaction([config_strings.checkmark, config_strings.xmark], message=message, user=ctx.message.author)
+            if result.reaction.emoji == config_strings.checkmark:
+                want_to_be_donator = True
+            else:
+                want_to_be_donator = False
 
-        result = await discord_client.wait_for_reaction([config_strings.checkmark, config_strings.xmark], message=message, user=ctx.message.author)
-        if result.reaction.emoji == config_strings.checkmark:
-            want_to_be_donator = True
-        else:
-            want_to_be_donator = False
+            result_string = self.process_role_request(discord_id, want_to_be_donator)
+            await discord_client.send_message(ctx.message.channel, result_string)
 
-        result_string = self.process_role_request(discord_id, want_to_be_donator)
-        await discord_client.send_message(ctx.message.channel, result_string)
-
-        bot_channel = discord_client.get_channel(MyConfigBot.testingChannelID)
-        try:
-            await update_roles(database_accessor)
-            await discord_client.send_message(bot_channel, "Applied roles")
-        except:
-            await discord_client.send_message(bot_channel, "Failed to apply roles")
+            bot_channel = discord_client.get_channel(MyConfigBot.testingChannelID)
+            try:
+                await update_roles()
+                await discord_client.send_message(bot_channel, "Applied roles")
+            except:
+                await discord_client.send_message(bot_channel, "Failed to apply roles")
 
 
 #		await update_roles()
@@ -329,7 +333,7 @@ class ClanWar:
     async def get_clan_war_roster(self, ctx):
         await discord_client.say('Working on it...')
         timeChecking = add_time_to_check()
-        while fetched_data_processor.previous_processed_time_instance.time < timeChecking:
+        while last_updated_data_time < timeChecking:
             await asyncio.sleep(1)
 
         roster = clashAccessData.getMembersFromLastWar()
@@ -341,7 +345,7 @@ class ClanWar:
         """Generate a new war roster with all changes that were requested."""
         await discord_client.say('Working on it...')
         timeChecking = add_time_to_check()
-        while fetched_data_processor.previous_processed_time_instance.time < timeChecking:
+        while last_updated_data_time < timeChecking:
             await asyncio.sleep(1)
 
         roster = clashAccessData.getNewWarRoster()
@@ -578,9 +582,9 @@ class ClanManagement:
         message = await discord_client.wait_for_message(author=ctx.message.author)
         time_since_filled = current_timestamp - int(message.content) * 60
 
-        if time_since_filled > fetched_data_processor.previous_processed_time_instance.time:
+        if time_since_filled > last_updated_data_time:
             time_checking = add_time_to_check()
-            while fetched_data_processor.previous_processed_time_instance.time < time_checking:
+            while last_updated_data_time < time_checking:
                 await asyncio.sleep(1)
 
         result_dict = clashAccessData.getAllDonatedOrReceivedInTimeFrame(time_since_created, time_since_filled)
@@ -591,16 +595,20 @@ class ClanManagement:
     @commands.command(name='getallmemberswithoutdiscord', pass_context=True)
     @commands.has_role("developers")
     async def get_all_members_without_discord(self, ctx):
-        discord_id = ctx.message.author.id
-        results = database_accessor.get_all_members_without_discord_as_string()
-        await discord_client.say(results)
+        with session_scope() as session:
+            database_accessor = DatabaseAccessor(session)
+            discord_id = ctx.message.author.id
+            results = database_accessor.get_all_members_without_discord_as_string()
+            await discord_client.say(results)
 
     @commands.command(name='getwarmemberswithoutdiscord', pass_context=True)
     @commands.has_role("developers")
     async def get_war_members_without_discord(self, ctx):
-        discord_id = ctx.message.author.id
-        results = database_accessor.getMembersInWarWithoutDiscordAsString()
-        await discord_client.say(results)
+        with session_scope() as session:
+            database_accessor = DatabaseAccessor(session)
+            discord_id = ctx.message.author.id
+            results = database_accessor.getMembersInWarWithoutDiscordAsString()
+            await discord_client.say(results)
 
     @commands.command(name='linkothersaccount', pass_context=True)
     @commands.has_role("developers")
@@ -647,7 +655,7 @@ class ClanManagement:
                 count = clashAccessData.setWarPermissionVal(member_name, 0)
             await discord_client.say('{} rows changed.'.format(count))
             try:
-                await update_roles(database_accessor)
+                await update_roles()
                 await discord_client.say("Applied roles")
             except:
                 await discord_client.say("Failed to apply roles")
@@ -668,90 +676,93 @@ account_management_cog = AccountManagement()
 discord_client.add_cog(account_management_cog)
 
 
-async def update_roles(database_accessor):
+async def update_roles():
 
     print('updating roles')
-    roles = server.roles
+    with session_scope() as session:
+        database_accessor = DatabaseAccessor(session)
 
-    def find(f, seq):
-        """Return first item in sequence where f(item) == True."""
-        for item in seq:
-            if f(item):
-                return item
-        return None
-    member_role = find(lambda role: role.name == 'members', roles)
-    war_role = find(lambda role: role.name == 'war', roles)
-    troop_role = find(lambda role: role.name == 'troopdonators', roles)
-    check_in_role = find(lambda role: role.name == 'MIAUsers', roles)
-    war_perms_role = find(lambda role: role.name == 'has_war_permissions', roles)
-    th12_role = find(lambda role: role.name == 'TH12', roles)
+        roles = server.roles
 
-    discord_ids_of_members_in_clan = database_accessor.get_members_in_clan()
-    discord_ids_of_war_participants = database_accessor.get_discord_members_in_war()
-    discord_ids_of_members_with_war_permissions = database_accessor.get_discord_ids_of_members_with_war_permissions()
-    discord_ids_of_members_who_are_th12 = database_accessor.get_discord_ids_of_members_who_are_th12()
+        def find(f, seq):
+            """Return first item in sequence where f(item) == True."""
+            for item in seq:
+                if f(item):
+                    return item
+            return None
+        member_role = find(lambda role: role.name == 'members', roles)
+        war_role = find(lambda role: role.name == 'war', roles)
+        troop_role = find(lambda role: role.name == 'troopdonators', roles)
+        check_in_role = find(lambda role: role.name == 'MIAUsers', roles)
+        war_perms_role = find(lambda role: role.name == 'has_war_permissions', roles)
+        th12_role = find(lambda role: role.name == 'TH12', roles)
 
-    print(discord_ids_of_members_in_clan)
-    print(discord_ids_of_war_participants)
-    print(discord_ids_of_members_with_war_permissions)
-    print(discord_ids_of_members_who_are_th12)
+        discord_ids_of_members_in_clan = database_accessor.get_members_in_clan()
+        discord_ids_of_war_participants = database_accessor.get_discord_members_in_war()
+        discord_ids_of_members_with_war_permissions = database_accessor.get_discord_ids_of_members_with_war_permissions()
+        discord_ids_of_members_who_are_th12 = database_accessor.get_discord_ids_of_members_who_are_th12()
 
-    # go through everyone in discord
-    for server_member in server.members:
+        print(discord_ids_of_members_in_clan)
+        print(discord_ids_of_war_participants)
+        print(discord_ids_of_members_with_war_permissions)
+        print(discord_ids_of_members_who_are_th12)
 
-        if server_member.bot:
-            continue
-        server_member_id = server_member.id
+        # go through everyone in discord
+        for server_member in server.members:
 
-        if server_member_id in discord_ids_of_members_in_clan:
-            roles_to_add = []
-            roles_to_remove = []
+            if server_member.bot:
+                continue
+            server_member_id = server_member.id
 
-            if member_role not in server_member.roles:
-                roles_to_add.append(member_role)
+            if server_member_id in discord_ids_of_members_in_clan:
+                roles_to_add = []
+                roles_to_remove = []
 
-            is_troop_donator = discord_ids_of_members_in_clan[server_member_id]
-            if is_troop_donator == 1:
-                if troop_role not in server_member.roles:
-                    roles_to_add.append(troop_role)
+                if member_role not in server_member.roles:
+                    roles_to_add.append(member_role)
+
+                is_troop_donator = discord_ids_of_members_in_clan[server_member_id]
+                if is_troop_donator == 1:
+                    if troop_role not in server_member.roles:
+                        roles_to_add.append(troop_role)
+                else:
+                    if troop_role in server_member.roles:
+                        roles_to_remove.append(troop_role)
+
+                if server_member_id in discord_ids_of_members_with_war_permissions:
+                    if war_perms_role not in server_member.roles:
+                        roles_to_add.append(war_perms_role)
+                else:
+                    if war_perms_role in server_member.roles:
+                        roles_to_remove.append(war_perms_role)
+
+                if server_member_id in discord_ids_of_war_participants:
+                    if war_role not in server_member.roles:
+                        roles_to_add.append(war_role)
+                else:
+                    if war_role in server_member.roles:
+                        roles_to_remove.append(war_role)
+
+                if server_member_id in discord_ids_of_members_who_are_th12:
+                    if th12_role not in server_member.roles:
+                        roles_to_add.append(th12_role)
+                else:
+                    if th12_role in server_member.roles:
+                        roles_to_remove.append(th12_role)
+
+                # update roles
+                if len(roles_to_add) > 0:
+                    await discord_client.add_roles(server_member, *roles_to_add)
+                if len(roles_to_remove) > 0:
+                    for role in roles_to_remove:
+                        print(role)
+                    await discord_client.remove_roles(server_member, *roles_to_remove)
+            # if not in clan, remove roles
             else:
-                if troop_role in server_member.roles:
-                    roles_to_remove.append(troop_role)
+                if len(server_member.roles) > 1:
+                    await discord_client.remove_roles(server_member, member_role, war_role, troop_role, check_in_role)
 
-            if server_member_id in discord_ids_of_members_with_war_permissions:
-                if war_perms_role not in server_member.roles:
-                    roles_to_add.append(war_perms_role)
-            else:
-                if war_perms_role in server_member.roles:
-                    roles_to_remove.append(war_perms_role)
-
-            if server_member_id in discord_ids_of_war_participants:
-                if war_role not in server_member.roles:
-                    roles_to_add.append(war_role)
-            else:
-                if war_role in server_member.roles:
-                    roles_to_remove.append(war_role)
-
-            if server_member_id in discord_ids_of_members_who_are_th12:
-                if th12_role not in server_member.roles:
-                    roles_to_add.append(th12_role)
-            else:
-                if th12_role in server_member.roles:
-                    roles_to_remove.append(th12_role)
-
-            # update roles
-            if len(roles_to_add) > 0:
-                await discord_client.add_roles(server_member, *roles_to_add)
-            if len(roles_to_remove) > 0:
-                for role in roles_to_remove:
-                    print(role)
-                await discord_client.remove_roles(server_member, *roles_to_remove)
-        # if not in clan, remove roles
-        else:
-            if len(server_member.roles) > 1:
-                await discord_client.remove_roles(server_member, member_role, war_role, troop_role, check_in_role)
-
-    print('done updating!')
+        print('done updating!')
 
 
 def update_times_to_check_data():
@@ -844,7 +855,7 @@ async def send_out_war_reminders(database_accessor):
 
             # update data to be sure we aren't sending reminders to people who have already attacked, just recently
             time_checking = add_time_to_check()
-            while fetched_data_processor.previous_processed_time_instance.time < time_checking:
+            while last_updated_data_time < time_checking:
                 await asyncio.sleep(1)
 
             accounts_that_need_to_attack = database_accessor.get_members_in_war_with_attacks_remaining()
@@ -899,17 +910,18 @@ async def start_gathering_data():
     # global last_updated_data
     global data_check_override
 
-    db_path = "clashData.db"
-    db_session = DatabaseSetup.get_session(engine_string="sqlite:///" + db_path)
+    global last_updated_data_time
+
+    last_updated_data_time = FetchedDataProcessorHelper.last_processed_time_helper()
 
 # self.previous_processed_time
-#     last_updated_data = fetched_data_processor.previous_processed_time # clashAccessData.getLastProcessedTime()
+#     last_updated_data = fetched_data_processor.previous_processed_time # clashAccessData.get_last_processed_time()
 
     # this is last retrieved, regardless of failure
-    # last_fetched = clashAccessData.getLastProcessedTime()
+    # last_fetched = clashAccessData.get_last_processed_time()
 
     # this handles startups, but prevents spammy startups when restarting several times in a row
-    if DateFetcherFormatter.get_utc_timestamp() - fetched_data_processor.previous_processed_time_instance.time > 60 * 60:
+    if DateFetcherFormatter.get_utc_timestamp() - last_updated_data_time > 60 * 60:
         data_check_override = True
 
     await discord_client.wait_until_ready()
@@ -918,7 +930,7 @@ async def start_gathering_data():
     global server
     server = discord_client.get_server(MyConfigBot.server_id)
 
-    discord_client.loop.create_task(send_out_gift_reminders(database_accessor))
+    # discord_client.loop.create_task(send_out_gift_reminders(database_accessor))
     # discord_client.loop.create_task(send_out_war_reminders(database_accessor))
     # discord_client.loop.create_task(createRules())
 
@@ -949,14 +961,12 @@ async def start_gathering_data():
                 await discord_client.send_message(bot_channel, "Getting data")
                 try:
                     await discord_client.loop.run_in_executor(None, data_fetcher.get_data_from_server)
-                    # data_fetcher.get_data_from_server()
                     await asyncio.sleep(1)
                 except Exception as e:
                     await discord_client.send_message(bot_channel, "get_data_from_server: {}".format(e))
                     raise
                 try:
                     data_valid = await discord_client.loop.run_in_executor(None, data_fetcher.validate_data)
-                    data_valid = data_fetcher.validate_data()
                 except IOError as e:
                     await discord_client.send_message(bot_channel, "The data file doesn't exist to validate {}".format(e))
                     data_valid = False
@@ -967,22 +977,18 @@ async def start_gathering_data():
                 try:
                     await discord_client.send_message(bot_channel, "trying again now")
                     await discord_client.loop.run_in_executor(None, data_fetcher.get_data_from_server)
-                    data_fetcher.get_data_from_server()
                     data_valid = await discord_client.loop.run_in_executor(None, data_fetcher.validate_data)
-                    data_valid = data_fetcher.validate_data()
                 except:
                     await discord_client.send_message(bot_channel, "Something is not working")
                     data_valid = False
             if data_valid:
                 await discord_client.send_message(bot_channel, "Data was retrieved")
                 try:
-                    # await discord_client.loop.run_in_executor(None, fetched_data_processor.save_data)
-                    fetched_data_processor.save_data()
+                    last_updated_data_time = await discord_client.loop.run_in_executor(None, FetchedDataProcessorHelper.save_data_helper)
                     await asyncio.sleep(1)
-                    # last_updated_data = DateFetcherFormatter.get_utc_timestamp()
                     await discord_client.send_message(bot_channel, "Data was saved")
                     try:
-                        await update_roles(database_accessor)
+                        await update_roles()
                         await discord_client.send_message(bot_channel, "Applied roles")
                     except Exception:
                         await discord_client.send_message(bot_channel, "Failed to apply roles")
