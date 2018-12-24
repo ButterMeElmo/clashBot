@@ -58,7 +58,10 @@ class FetchedDataProcessor:
         self.session = session
         # super().__init__(session)
 
-        data_directory = "data"
+        if hasattr(MyConfigBot, 'testing_data_dir'):
+            data_directory = MyConfigBot.testing_data_dir
+        else:
+            data_directory = "data"
 
         if not os.path.exists(data_directory):
             print('No data to load')
@@ -212,15 +215,95 @@ class FetchedDataProcessor:
                 end = time.time()
                 print(end - start)
 
-    def process_clan_war_details(self, war):
+    def process_clan_war_league_entries(self, entries, clan_tag_to_scan=MyConfigBot.my_clan_tag):
+        # todo fix the data...
+        for key, value in entries.items():
+            if key != "timestamp":
+                war = value
+                clan_tag = war["clan"]["tag"]
+                opponent_tag = war["opponent"]["tag"]
+                if clan_tag == clan_tag_to_scan:
+                    pass
+                elif opponent_tag == clan_tag_to_scan:
+                    # flip these as we assume we are always the friendly clan
+                    clan = war.pop("opponent")
+                    opponent = war.pop("clan")
+                    war["clan"] = clan
+                    war["opponent"] = opponent
+                else:
+                    # we aren't in this war, so we don't really care about it, yet
+                    continue
+
+                # remove all our members, we only want to process the ones actually in war
+                clan_members = war["clan"].pop("members")
+                war["clan"]["members"] = []
+
+                # get opponenents members, but don't clear them. They're used to process ours, but not saved anyways.
+                opponent_members = war["opponent"]["members"]
+
+                # see if we have 15 attacks to determine who we had in war
+                clan_members_in_cwl = {}
+                for member in clan_members:
+                    if "attacks" in member:
+                        member_tag = member["tag"]
+                        clan_members_in_cwl[member_tag] = member
+
+                # if we couldn't tell who all 15 were, iterate through opponents and try to find the rest
+                if len(clan_members_in_cwl) != 15:
+
+                    # save all the clan members
+                    clan_members_to_scan = {}
+                    for member in clan_members:
+                        member_tag = member["tag"]
+                        clan_members_to_scan[member_tag] = member
+
+                    # iterate through the opponents
+                    for member in opponent_members:
+                        # if the opponent used his attack, see if we have added that person yet
+                        if "attacks" in member:
+                            clan_member_tag = member["attacks"][0]["defenderTag"]
+                            if clan_member_tag not in clan_members_in_cwl:
+                                clan_members_in_cwl[clan_member_tag] = clan_members_to_scan[clan_member_tag]
+
+                for member in clan_members_in_cwl.values():
+                    war["clan"]["members"].append(member)
+
+                war["timestamp"] = entries["timestamp"]
+                # now, determine what members are in the war
+                self.process_clan_war_details(war, is_clan_war_league=True)
+
+
+    def process_clan_war_league_files(self):
+        count = 0
+        scdf = SupercellDataFetcher()
+        for clan_war_league_wars_file in scdf.get_file_names(self.data_directory, 'clanWarLeagueWars', '.json', self.previous_processed_time):
+            if os.path.exists(clan_war_league_wars_file):
+                print('processing: {}'.format(clan_war_league_wars_file))
+                start = time.time()
+
+                entries = json.load(open(clan_war_league_wars_file))
+                for clan_war_league_entries in entries:
+                    if self.previous_processed_time < int(clan_war_league_entries['timestamp'] / 1000):
+                        self.process_clan_war_league_entries(clan_war_league_entries)
+
+                        # self.previous_processed_time_instance.time = int(player_achievements_entry['timestamp']/1000)
+                        count += 1
+                        if count_to_get_to != 0 and count_to_get_to == count:
+                            return
+                end = time.time()
+                print(end - start)
+
+    def process_clan_war_details(self, war, is_clan_war_league=False):
 
         global printed_already
 
+        # if there is no active war being passed, quit
         war_state = war['state']
         # print(war_state)
         if war_state == 'notInWar':
             return
 
+        # get basic war data
         prep_start_time = self.convert_supercell_timestamp_string_to_epoch(war['preparationStartTime'])
         war_start_time = self.convert_supercell_timestamp_string_to_epoch(war['startTime'])
         war_end_time = self.convert_supercell_timestamp_string_to_epoch(war['endTime'])
@@ -234,6 +317,7 @@ class FetchedDataProcessor:
         friendly_attacks = war['clan']['attacks']
         friendly_level = war['clan']['clanLevel']
 
+        # make sure our clan is in the DB
         friendly_clan_instance = self.session.query(CLAN).filter(CLAN.clan_tag == friendly_tag).one_or_none()
         if friendly_clan_instance is None:
             friendly_clan_instance = CLAN()
@@ -241,11 +325,12 @@ class FetchedDataProcessor:
             friendly_clan_instance.clan_name = friendly_name
             self.session.add(friendly_clan_instance)
 
+        # reset in_war_currently for all members in our clan or in no clan, as this will be updated in this method
+        # todo- move this to top of function above the return, and accept a clan tag. use that instead of friendly tag.
         all_members_no_clan = self.session.query(MEMBER).filter(MEMBER.clan_tag == None)
         all_members_friendly_clan = self.session.query(MEMBER).filter(MEMBER.clan_tag == friendly_tag)
-
-        all_members_no_clan.update({'in_war_currently':0})
-        all_members_friendly_clan.update({'in_war_currently':0})
+        all_members_no_clan.update({'in_war_currently': 0})
+        all_members_friendly_clan.update({'in_war_currently': 0})
 
         opponent_name = war['opponent']['name']
         opponent_tag = war['opponent']['tag']
@@ -272,6 +357,7 @@ class FetchedDataProcessor:
             else:
                 status = 'tied'
 
+        # make sure the opponent clan exists in our DB
         opponent_clan_instance = self.session.query(CLAN).filter(CLAN.clan_tag == opponent_tag).one_or_none()
         if opponent_clan_instance is None:
             opponent_clan_instance = CLAN()
@@ -279,6 +365,7 @@ class FetchedDataProcessor:
             opponent_clan_instance.clan_name = opponent_name
             self.session.add(opponent_clan_instance)
 
+        # make sure the war exists, create it if not
         war_instance = self.session.query(WAR).filter(WAR.prep_day_start == prep_start_time) \
             .filter(WAR.enemy_clan == opponent_clan_instance) \
             .filter(WAR.friendly_clan == friendly_clan_instance).one_or_none()
@@ -288,8 +375,16 @@ class FetchedDataProcessor:
             war_instance.enemy_clan = opponent_clan_instance
             war_instance.friendly_clan = friendly_clan_instance
             war_instance.prep_day_start = prep_start_time
+            war_instance.is_clan_war_league_war = is_clan_war_league
+            war_instance.war_size = war_size
             self.session.add(war_instance)
 
+        # if this is false, then this is a CWL war from the non CWL files, so it has been handled already, skip it.
+        if war_instance.is_clan_war_league_war != is_clan_war_league:
+            # cwl called from standard war files will be messed up and has already been processed
+            return
+
+        # update war variables that can change (time change change due to maintenance breaks)
         war_instance.result = status
         war_instance.friendly_stars = friendly_stars
         war_instance.enemy_stars = opponent_stars
@@ -297,7 +392,6 @@ class FetchedDataProcessor:
         war_instance.enemy_percentage = opponent_destruction_percentage
         war_instance.friendly_attacks_used = friendly_attacks
         war_instance.enemy_attacks_used = opponent_attacks
-        war_instance.war_size = war_size
         war_instance.war_day_start = war_start_time
         war_instance.war_day_end = war_end_time
 
@@ -307,116 +401,123 @@ class FetchedDataProcessor:
 
         possible_clan_types = ['clan', 'opponent']
 
-        for clan_type in possible_clan_types:
-            clan_tag = war['clan']['tag']
-            for member in war[clan_type]['members']:
+        # earlier we were saving the opponents attacks too. do we want to add that back?
+        # # iterate through each clan
+        # for clan_type in possible_clan_types:
 
-                attack1 = None
-                attack2 = None
+        # iterate through our attacks
+        clan_type = "clan"
+        clan_tag = war['clan']['tag']
+        for member in war[clan_type]['members']:
 
-                member_tag = member['tag']
-                member_name = member['name']
-                member_town_hall = member['townhallLevel']
-                member_map_position = member['mapPosition']
+            attack1 = None
+            attack2 = None
 
-                if clan_type == 'clan':
+            member_tag = member['tag']
+            member_name = member['name']
+            member_town_hall = member['townhallLevel']
+            member_map_position = member['mapPosition']
 
-                    member_instance = self.session.query(MEMBER).filter(MEMBER.member_tag==member_tag).one_or_none()
-                    if member_instance is None:
-                        member_instance = MEMBER()
-                        member_instance.member_tag = member_tag
-                        self.session.add(member_instance)
+            # this could be removed for the moment, but if we decide to process the enemy, I will need it back.
+            if clan_type == 'clan':
 
-                    if not printed_already:
-                        print('change this status string too...')
-                        printed_already = True
-                    if status == 'in progress':
-                        # query = self.session.query(MEMBER).filter(MEMBER.member_tag == member_tag)
-                        # query.update({'in_war_currently': 1})
-                        member_instance.in_war_currently = 1
+                # ensure the member exists
+                member_instance = self.session.query(MEMBER).filter(MEMBER.member_tag==member_tag).one_or_none()
+                if member_instance is None:
+                    member_instance = MEMBER()
+                    member_instance.member_tag = member_tag
+                    self.session.add(member_instance)
 
-                    if war_instance.clan_war_identifier in member_instance.war_participations:
-                        war_participation_instance = member_instance.war_participations[
-                            war_instance.clan_war_identifier]
-                    else:
-                        war_participation_instance = WARPARTICIPATION()
-                        war_participation_instance.war = war_instance
-                        war_participation_instance.member = member_instance
-                        self.session.add(war_participation_instance)
-                        # self.session.flush()
+                if not printed_already:
+                    print('change this status string too...')
+                    printed_already = True
+                if status == 'in progress':
+                    # query = self.session.query(MEMBER).filter(MEMBER.member_tag == member_tag)
+                    # query.update({'in_war_currently': 1})
+                    member_instance.in_war_currently = 1
 
-                    if war_participation_instance.attack1 is None:
-                        attack_1_instance = WARATTACK()
-                        attack_1_instance.attacker_attack_number = 1
-                        attack_1_instance.war = war_instance
-                        war_participation_instance.attack1 = attack_1_instance
-                    else:
-                        attack_1_instance = war_participation_instance.attack1
+                # add the war participation if it doesn't exist yet.
+                if war_instance.clan_war_identifier in member_instance.war_participations:
+                    war_participation_instance = member_instance.war_participations[war_instance.clan_war_identifier]
+                else:
+                    war_participation_instance = WARPARTICIPATION()
+                    war_participation_instance.war = war_instance
+                    war_participation_instance.member = member_instance
+                    self.session.add(war_participation_instance)
+                    # self.session.flush()
 
+                # always make sure we have a war attack 1 for this member in this war
+                if war_participation_instance.attack1 is None:
+                    attack_1_instance = WARATTACK()
+                    attack_1_instance.attacker_attack_number = 1
+                    attack_1_instance.war = war_instance
+                    attack_1_instance.member = member_instance
+                    attack_1_instance.is_clan_war_league_attack = war_instance.is_clan_war_league_war
+                    attack_1_instance.attacker_tag = member_tag
+                    attack_1_instance.attacker_position = member_map_position
+                    attack_1_instance.attacker_town_hall = member_town_hall
+                    war_participation_instance.attack1 = attack_1_instance
+                else:
+                    attack_1_instance = war_participation_instance.attack1
+
+                # if not a CWL, make sure we have a war attack 1 for this member in this war
+                if not war_instance.is_clan_war_league_war:
                     if war_participation_instance.attack2 is None:
                         attack_2_instance = WARATTACK()
                         attack_2_instance.attacker_attack_number = 2
                         attack_2_instance.war = war_instance
+                        attack_2_instance.member = member_instance
+                        attack_2_instance.is_clan_war_league_attack = 0
+                        attack_2_instance.attacker_tag = member_tag
+                        attack_2_instance.attacker_position = member_map_position
+                        attack_2_instance.attacker_town_hall = member_town_hall
                         war_participation_instance.attack2 = attack_2_instance
                     else:
                         attack_2_instance = war_participation_instance.attack2
 
-                    # only if this is our clan
-                    attack_1_instance.member = member_instance
-                    attack_2_instance.member = member_instance
+                if 'attacks' not in member:
 
-                    if 'attacks' not in member:
-
-                        attack_1_instance.attacker_tag = member_tag
-                        attack_1_instance.attacker_position = member_map_position
-                        attack_1_instance.attacker_town_hall = member_town_hall
-                        attack_1_instance.attack_occurred_after = data_time
-
-                        attack_2_instance.attacker_tag = member_tag
-                        attack_2_instance.attacker_position = member_map_position
-                        attack_2_instance.attacker_town_hall = member_town_hall
+                    # update these times if the attacks haven't occurred
+                    attack_1_instance.attack_occurred_after = data_time
+                    if not war_instance.is_clan_war_league_war:
                         attack_2_instance.attack_occurred_after = data_time
-                    else:
+                else:
+                    # if only one attack has occurred, update the second one's last time not seen
+                    if len(member['attacks']) == 1 and not war_instance.is_clan_war_league_war:
+                        attack_2_instance.attack_occurred_after = data_time
 
-                        if len(member['attacks']) == 1:
-                            attack_2_instance.attacker_tag = member_tag
-                            attack_2_instance.attacker_position = member_map_position
-                            attack_2_instance.attacker_town_hall = member_town_hall
-                            attack_2_instance.attack_occurred_after = data_time
-                        for i in range(0, len(member['attacks'])):
-                            attack = member['attacks'][i]
+                    # add the attacks that have occurred
+                    for i in range(0, len(member['attacks'])):
+                        attack = member['attacks'][i]
 
-                            defender_tag = attack['defenderTag']
+                        defender_tag = attack['defenderTag']
 
-                            def find_position_and_town_hall_for_member_tag(parsing_war, parsing_tag):
-                                for parsing_clan_type in possible_clan_types:
-                                    for parsing_member in parsing_war[parsing_clan_type]['members']:
-                                        if parsing_member['tag'] == parsing_tag:
-                                            parsing_member_town_hall = parsing_member['townhallLevel']
-                                            parsing_member_map_position = member['mapPosition']
-                                            return parsing_member_map_position, parsing_member_town_hall
+                        def find_position_and_town_hall_for_member_tag(parsing_war, parsing_tag):
+                            for parsing_clan_type in possible_clan_types:
+                                for parsing_member in parsing_war[parsing_clan_type]['members']:
+                                    if parsing_member['tag'] == parsing_tag:
+                                        parsing_member_town_hall = parsing_member['townhallLevel']
+                                        parsing_member_map_position = member['mapPosition']
+                                        return parsing_member_map_position, parsing_member_town_hall
 
-                            defender_position_on_war_map, defender_town_hall = find_position_and_town_hall_for_member_tag(
-                                    war, defender_tag)
+                        defender_position_on_war_map, defender_town_hall = find_position_and_town_hall_for_member_tag(war, defender_tag)
 
-                            if i == 0:
-                                # attack1 = self.add_war_attack_to_db(**converted_war_attack_kwargs)
-                                attack_1_instance.defender_tag = defender_tag
-                                attack_1_instance.defender_position = defender_position_on_war_map
-                                attack_1_instance.defender_town_hall = defender_town_hall
-                                attack_1_instance.stars = attack['stars']
-                                attack_1_instance.destruction_percentage = attack['destructionPercentage']
-                                attack_1_instance.attack_occurred_before = data_time
-                                attack_1_instance.order_number = attack['order']
-                            else:
-                                # attack2 = self.add_war_attack_to_db(**converted_war_attack_kwargs)
-                                attack_2_instance.defender_tag = defender_tag
-                                attack_2_instance.defender_position = defender_position_on_war_map
-                                attack_2_instance.defender_town_hall = defender_town_hall
-                                attack_2_instance.stars = attack['stars']
-                                attack_2_instance.destruction_percentage = attack['destructionPercentage']
-                                attack_2_instance.attack_occurred_before = data_time
-                                attack_2_instance.order_number = attack['order']
+                        if i == 0:
+                            attack_1_instance.defender_tag = defender_tag
+                            attack_1_instance.defender_position = defender_position_on_war_map
+                            attack_1_instance.defender_town_hall = defender_town_hall
+                            attack_1_instance.stars = attack['stars']
+                            attack_1_instance.destruction_percentage = attack['destructionPercentage']
+                            attack_1_instance.attack_occurred_before = data_time
+                            attack_1_instance.order_number = attack['order']
+                        else:
+                            attack_2_instance.defender_tag = defender_tag
+                            attack_2_instance.defender_position = defender_position_on_war_map
+                            attack_2_instance.defender_town_hall = defender_town_hall
+                            attack_2_instance.stars = attack['stars']
+                            attack_2_instance.destruction_percentage = attack['destructionPercentage']
+                            attack_2_instance.attack_occurred_before = data_time
+                            attack_2_instance.order_number = attack['order']
 
     def process_clan_war_details_files(self):
         count = 0
@@ -887,6 +988,9 @@ class FetchedDataProcessor:
 
         # used to also process clan profile, was there actually any benefit that's not
         # covered by the achievement files?
+
+        print('process_clan_war_league_files')
+        self.process_clan_war_league_files()
 
         # this contains details on the current war (at the time of saving)
         print('process_clan_war_details_files')

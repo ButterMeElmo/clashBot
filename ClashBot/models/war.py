@@ -22,6 +22,8 @@ class WAR(Base):
     war_day_start = Column(Integer)
     war_day_end = Column(Integer)
 
+    is_clan_war_league_war = Column(SmallInteger)
+
     war_attacks = relationship("WARATTACK", back_populates="war")
     # friendly_clan = relationship("CLAN", back_populates="wars")
 
