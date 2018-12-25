@@ -7,7 +7,7 @@ import datetime
 import pytz
 from discord.ext import commands
 #import clashWebServer
-from ClashBot import FetchedDataProcessor, DatabaseAccessor, DateFetcherFormatter, MyConfigBot, SupercellDataFetcher, FetchedDataProcessorHelper
+from ClashBot import FetchedDataProcessor, DatabaseAccessor, DateFetcherFormatter, MyConfigBot, SupercellDataFetcher, FetchedDataProcessorHelper, NoActiveClanWarLeagueWar, NoActiveClanWar
 from my_help_formatter import MyHelpFormatter, _default_help_command
 # import clashAccessData
 # import MyConfigBot
@@ -32,6 +32,15 @@ last_updated_data_time = 0
 leader_nickname = MyConfigBot.leader_nickname
 
 data_fetcher = SupercellDataFetcher()
+
+
+class MemberDoesNotExistException(Exception):
+    pass
+
+
+class MemberNotSelectedException(Exception):
+    pass
+
 
 @discord_client.event
 async def on_member_join(member):
@@ -77,6 +86,22 @@ async def save(ctx):
         fetched_data_processor = FetchedDataProcessor(session)
         fetched_data_processor.save_data()
         await discord_client.say('Saved')
+
+@discord_client.command(name="updateroles", pass_context=True)
+@commands.has_role("developers")
+async def update_roles_command(ctx):
+    try:
+        bot_channel = discord_client.get_channel(botChannelID)
+        await update_roles()
+        await discord_client.send_message(bot_channel, "Applied roles")
+        try:
+            await notify_if_cwl_roster_needs_set()
+            await discord_client.send_message(bot_channel, "Notified that CWL roster needs set (if it does)")
+            await discord_client.say('Updated')
+        except Exception:
+            await discord_client.send_message(bot_channel, "Failed to notify that CWL needs set")
+    except Exception:
+        await discord_client.send_message(bot_channel, "Failed to apply roles")
 
 
 @discord_client.command(pass_context=True)
@@ -161,6 +186,7 @@ class AccountManagement:
             await discord_client.say('Failed to find the mention')
 
     @commands.command(name='linkmyaccount', pass_context=True,  brief='Connect your discord to a clash account')
+    @commands.has_role("developers")
     async def link_accounts_beta(self, ctx, discord_id=None):
         """Link your Clash accounts to your discord account"""
         print('starting link')
@@ -248,14 +274,11 @@ class AccountManagement:
             introduction_string = 'Your account(s) are all set up!\n'
             introduction_string += 'During war, you may use @troopdonators to request troops for war.\n'
             rules_channel = server.get_channel(MyConfigBot.rulesChannelID)
-            introduction_string += 'Please see {} for the clan rules.\n'.format(
-                rules_channel.mention)
+            introduction_string += 'Please see {} for the clan rules.\n'.format(rules_channel.mention)
             war_channel = server.get_channel(MyConfigBot.warChannelID)
-            introduction_string += 'Finally, we have a {} channel for discussing war.\n'.format(
-                war_channel.mention)
+            introduction_string += 'Finally, we have a {} channel for discussing war.\n'.format(war_channel.mention)
             leader = server.get_member(MyConfigBot.leaderDiscordID)
-            introduction_string += 'If you have any questions, please ask @{}!'.format(
-                leader.nick)
+            introduction_string += 'If you have any questions, please ask @{}!'.format(leader.nick)
             await discord_client.say(introduction_string)
 
     @commands.command(name='linkmyaccountold', hidden=True, pass_context=True,  brief='Connect your discord to a clash account')
@@ -272,6 +295,7 @@ class AccountManagement:
         await discord_client.say(result)
 
     @commands.command(name='checkmylinkedaccounts', pass_context=True,  brief='Check which clash accounts you have linked')
+    @commands.has_role("developers")
     async def check_linked_accounts(self, ctx, discord_id=None):
         """Check which Clash accounts are linked with your discord."""
         if discord_id is None:
@@ -297,6 +321,7 @@ class AccountManagement:
         return result_string
 
     @commands.command(name='changemydonatorstatus', pass_context=True,  brief='Request to become or stop being a @troopdonator.')
+    @commands.has_role("developers")
     async def add_donator_role(self, ctx):
         with session_scope() as session:
             database_accessor = DatabaseAccessor(session)
@@ -323,24 +348,17 @@ class AccountManagement:
             except:
                 await discord_client.send_message(bot_channel, "Failed to apply roles")
 
-
-#		await update_roles()
-
 class ClanWar:
 
     @commands.command(name='lastroster', pass_context=True,  brief='See the last war roster')
     @commands.has_role("developers")
     async def get_clan_war_roster(self, ctx):
         await discord_client.say('Working on it...')
-        timeChecking = add_time_to_check()
-        while last_updated_data_time < timeChecking:
-            await asyncio.sleep(1)
-
         roster = clashAccessData.getMembersFromLastWar()
         await discord_client.say(roster)
 
     @commands.command(name='newroster', pass_context=True,  brief='See the new war roster with changes')
-    @commands.has_role("coleaders")
+    @commands.has_role("developers")
     async def get_new_clan_war_roster(self, ctx):
         """Generate a new war roster with all changes that were requested."""
         await discord_client.say('Working on it...')
@@ -352,7 +370,7 @@ class ClanWar:
         await discord_client.say(roster)
 
     @commands.command(name='newrosternopull', pass_context=True,  brief='See the new war roster with changes')
-    @commands.has_role("coleaders")
+    @commands.has_role("developers")
     async def getNewClanWarRoster2(self, ctx):
         """Generate a new war roster with all changes that were requested."""
         await discord_client.say('Working on it...')
@@ -389,6 +407,7 @@ class ClanWar:
             await discord_client.send_message(ctx.message.channel, resultString)
 
     @commands.command(name='seerosterchanges', pass_context=True,  brief='See all war roster changes for the next war')
+    @commands.has_role("developers")
     async def see_war_changes(self, ctx):
         results = clashAccessData.getRosterChanges()
         await discord_client.say(results)
@@ -524,9 +543,195 @@ class ClanWar:
 
                 discord_client.loop.create_task(wait_for_result(account, message, ctx))
 
+    @commands.command(name='remindtoattack', pass_context=True,  brief='Remind members to attack!')
+    @commands.has_role("coleaders")
+    async def remind_members_to_attack_in_war(self, ctx):
+        await discord_client.say("Reminders are being processed and will be sent momentarily!!")
+        await send_out_war_reminders()
+
+    # use this right after asking for the member name
+    async def get_member_instance_from_name_helper(self, ctx, database_accessor):
+
+        message = await discord_client.wait_for_message(author=ctx.message.author)
+        clash_account_name = message.content.upper()
+
+        # get number of accounts matching this name
+        member_instances = database_accessor.get_members_in_clan_with_name(clash_account_name)
+
+        # if one, return it
+        if len(member_instances) == 1:
+            return member_instances[0]
+
+        # if zero, say that this member couldn't be found, was it just added to the clan?
+        # would need to refresh data and start process over again.
+        if len(member_instances) == 0:
+            raise MemberDoesNotExistException("This member could not be found. Was it added recently?")
+
+        # if > 1 match, ask again with which TH the matches are
+        # if both are the same TH, just use tags...
+        matched_members = {}
+        multiple_with_same_town_hall = False
+        if len(member_instances) > 1:
+            for member in member_instances:
+                if member.town_hall_level in matched_members:
+                    multiple_with_same_town_hall = True
+                    break
+                else:
+                    matched_members[member.town_hall_level] = member
+
+        if not multiple_with_same_town_hall:
+            sorted_keys = sorted(matched_members, reverse=True)
+            await discord_client.say("That name matched multiple accounts in the clan currently. Please select which you are looking for.")
+            for key in sorted_keys:
+                member = matched_members[key]
+                message = await discord_client.say("Is it: {}, with TH {}?".format(member.member_name, member.town_hall_level))
+                await discord_client.add_reaction(message, config_strings.checkmark)
+                await discord_client.add_reaction(message, config_strings.xmark)
+                result = await discord_client.wait_for_reaction([config_strings.checkmark, config_strings.xmark], message=message, user=ctx.message.author)
+                if result.reaction.emoji == config_strings.checkmark:
+                    return member
+                else:
+                    # keep looping
+                    pass
+            raise MemberNotSelectedException()
+        else:
+            await discord_client.say("That name matched multiple accounts in the clan currently. Please select which you are looking for.")
+            for member in member_instances:
+                message = await discord_client.say("Is it: {}, with member_tag {}?".format(member.member_name, member.member_tag))
+                await discord_client.add_reaction(message, config_strings.checkmark)
+                await discord_client.add_reaction(message, config_strings.xmark)
+                result = await discord_client.wait_for_reaction([config_strings.checkmark, config_strings.xmark], message=message, user=ctx.message.author)
+                if result.reaction.emoji == config_strings.checkmark:
+                    return member
+                else:
+                    # keep looping
+                    pass
+            raise MemberNotSelectedException()
+
+    async def set_cwl_roster_for_either_day(self, ctx, tomorrow_instead_of_today=False):
+
+        # todo - verify that member doesn't already exist in CWL when adding
+        # todo - save position on war map to print these in correct order...
+        # todo - update DB to have access to what war day the current one is...
+
+        await discord_client.say("Checking the current CWL war roster.")
+        with session_scope() as session:
+            database_accessor = DatabaseAccessor(session)
+
+            modified = False
+
+            try:
+                if tomorrow_instead_of_today:
+                    # get known members for current roster
+                    current_roster_particips, war_instance = database_accessor.get_cwl_roster_and_war_tomorrow()
+                else:
+                    # get known members for current roster
+                    current_roster_particips, war_instance = database_accessor.get_cwl_roster_and_war_today()
+            except NoActiveClanWarLeagueWar:
+                await discord_client.say("There is no active clan war league war.")
+                return
+
+            # print these, only an x or check under the second group
+            known_members = []
+            believed_members = []
+            for war_particip in current_roster_particips:
+                if war_particip.is_clan_war_league_war == 1:
+                    # print("We know this member_instance is in for sure")
+                    known_members.append(war_particip.member)
+                elif war_particip.is_clan_war_league_war == 2:
+                    # print("We have manually set this member_instance")
+                    believed_members.append(war_particip.member)
+
+            await discord_client.say("These members are definitely in war:")
+            for member_instance in known_members:
+                await discord_client.say(member_instance.member_name)
+                await asyncio.sleep(1)
+            if len(believed_members) > 0:
+                await discord_client.say("These members are set as in war, but were manually set. They could be wrong. Please confirm them!")
+                await discord_client.say("Hit the check on the members in the CWL, x on those not.")
+                for member_instance in believed_members:
+                    # print other details to be clear on duplicates? TH, hero levels, etc?
+                    message = await discord_client.say(member_instance.member_name)
+                    await discord_client.add_reaction(message, config_strings.checkmark)
+                    await discord_client.add_reaction(message, config_strings.xmark)
+                    result = await discord_client.wait_for_reaction([config_strings.checkmark, config_strings.xmark], message=message, user=ctx.message.author)
+                    if result.reaction.emoji == config_strings.checkmark:
+                        continue
+                    else:
+                        # remove this member_instance
+                        modified = True
+                        database_accessor.remove_member_from_current_cwl(member_instance, war_instance)
+                        await discord_client.say("Removed.")
+
+            mems_in_war = len(known_members) + len(believed_members)
+            await discord_client.say("This is a total of {} members in this CWL war.".format(mems_in_war))
+            while True:
+                message = await discord_client.say("Do you want to add someone else to this CWL?")
+                await discord_client.add_reaction(message, config_strings.checkmark)
+                await discord_client.add_reaction(message, config_strings.xmark)
+                result = await discord_client.wait_for_reaction([config_strings.checkmark, config_strings.xmark], message=message, user=ctx.message.author)
+                if result.reaction.emoji == config_strings.checkmark:
+                    await discord_client.say("Who would you like to add?")
+                    try:
+                        member_instance = await self.get_member_instance_from_name_helper(ctx, database_accessor)
+                        database_accessor.add_member_to_cwl(member_instance, war_instance)
+                        modified = True
+                        await discord_client.say("Added.")
+                    except MemberDoesNotExistException as e:
+                        await discord_client.say("This member doesn't seem to exist. Check if this account is in the clan currently.")
+                        print(e)
+                    except MemberNotSelectedException as e:
+                        await discord_client.say("No member was selected. Check if this account is in the clan currently.")
+                        print(e)
+                else:
+                    # we don't want to add anyone else
+                    break
+
+            if modified:
+                if tomorrow_instead_of_today:
+                    # get known members for current roster
+                    current_roster_particips, war_instance = database_accessor.get_cwl_roster_and_war_tomorrow()
+                else:
+                    # get known members for current roster
+                    current_roster_particips, war_instance = database_accessor.get_cwl_roster_and_war_today()
+
+                # print these, only an x or check under the second group
+                known_members = []
+                believed_members = []
+                for war_particip in current_roster_particips:
+                    if war_particip.is_clan_war_league_war == 1:
+                        # print("We know this member_instance is in for sure")
+                        known_members.append(war_particip.member)
+                    elif war_particip.is_clan_war_league_war == 2:
+                        # print("We have manually set this member_instance")
+                        believed_members.append(war_particip.member)
+
+                await discord_client.say("Here's the updated roster.")
+                await discord_client.say("These members are definitely in war:")
+                for member_instance in known_members:
+                    await discord_client.say(member_instance.member_name)
+                    await asyncio.sleep(1)
+                if len(believed_members) > 0:
+                    await discord_client.say("These members are set as in war, but were manually set. They could be wrong. Please re run this command if you need to change them!")
+                    for member_instance in believed_members:
+                        # print other details to be clear on duplicates? TH, hero levels, etc?
+                        await discord_client.say(member_instance.member_name)
+                        await asyncio.sleep(1)
+                await discord_client.say("This is a total of {} members in this CWL war.".format(len(current_roster_particips)))
+
+    @commands.command(name='setnextcwlroster', pass_context=True,  brief='Set the CWL roster for the next day')
+    @commands.has_role("developers")
+    async def set_next_cwl_roster(self, ctx):
+        await self.set_cwl_roster_for_either_day(ctx, tomorrow_instead_of_today=True)
+
+    @commands.command(name='setcurrentcwlroster', pass_context=True,  brief='Set the CWL roster for the current day')
+    @commands.has_role("developers")
+    async def set_current_cwl_roster(self, ctx):
+        await self.set_cwl_roster_for_either_day(ctx, tomorrow_instead_of_today=False)
 
 class ClanGames:
     @commands.command(name='checkmyCGscores', pass_context=True,  brief='Check your recent Clan Games scores')
+    @commands.has_role("developers")
     async def check_my_cg_scores(self, ctx):
         discord_id = ctx.message.author.id
         results = clashAccessData.getClanGamesResultsFor(discord_id)
@@ -540,8 +745,7 @@ class ClanGames:
             await discord_client.say('Who would you like to get Clan Games scores for?')
             message = await discord_client.wait_for_message(author=ctx.message.author)
             member_name = message.content.upper()
-            results = clashAccessData.getClanGamesResultsForMemberName(
-                member_name)
+            results = clashAccessData.getClanGamesResultsForMemberName(member_name)
             await discord_client.say(results)
 
             message = await discord_client.say('Would you like to check another account?')
@@ -698,7 +902,10 @@ async def update_roles():
         th12_role = find(lambda role: role.name == 'TH12', roles)
 
         discord_ids_of_members_in_clan = database_accessor.get_members_in_clan()
-        discord_ids_of_war_participants = database_accessor.get_discord_members_in_war()
+        try:
+            discord_ids_of_war_participants = database_accessor.get_discord_members_in_war()
+        except NoActiveClanWar:
+            discord_ids_of_war_participants = set()
         discord_ids_of_members_with_war_permissions = database_accessor.get_discord_ids_of_members_with_war_permissions()
         discord_ids_of_members_who_are_th12 = database_accessor.get_discord_ids_of_members_who_are_th12()
 
@@ -839,12 +1046,56 @@ async def send_out_gift_reminders(database_accessor):
         time_to_sleep = next_timestamp - current_date_time_timestamp
         await asyncio.sleep(time_to_sleep)
 
-
-async def send_out_war_reminders(database_accessor):
+async def send_out_war_reminders():
     war_channel = discord_client.get_channel(MyConfigBot.warChannelID)
     bot_channel = discord_client.get_channel(MyConfigBot.testingChannelID)
-    while True:
+    # update data to be sure we aren't sending reminders to people who have already attacked, just recently
+    # time_checking = add_time_to_check()
+    # while last_updated_data_time < time_checking:
+    #     await asyncio.sleep(1)
+
+    with session_scope() as session:
+        database_accessor = DatabaseAccessor(session)
+        try:
+            accounts_that_need_to_attack = database_accessor.get_members_in_war_with_attacks_remaining()
+        except NoActiveClanWar:
+            await discord_client.say("There is no active clan war.")
+            return
         next_timestamps_for_war = database_accessor.get_timestamps_for_current_war()
+        next_war_timestamp_string = next_timestamps_for_war[0][1]
+    for discord_id in accounts_that_need_to_attack["discord"]:
+        account_names_dict = accounts_that_need_to_attack["discord"][discord_id]
+        account_names_string = ""
+        accounts_total = len(account_names_dict)
+        current_account = 0
+        for entry in account_names_dict:
+            member_name = entry["member_name"]
+            attacks_remaining = entry["attacks_remaining"]
+            if attacks_remaining == 1:
+                account_names_string += ' your {} attack with {}'.format(attacks_remaining, member_name)
+            else:
+                account_names_string += ' your {} attacks with {}'.format(attacks_remaining, member_name)
+            if current_account == accounts_total - 1:
+                # last account, do nothing at the end
+                account_names_string += ''
+            elif current_account == accounts_total - 2 and accounts_total == 2:
+                account_names_string += ' and'
+            elif current_account == accounts_total - 2:
+                account_names_string += ', and'
+            else:
+                account_names_string += ','
+            current_account += 1
+        discord_id = str(discord_id)
+        member = server.get_member(discord_id)
+        await discord_client.send_message(war_channel, 'Hey {}, make sure to use{}! {}'.format(member.mention, account_names_string, next_war_timestamp_string))
+        await asyncio.sleep(1)
+
+async def war_reminders_loop():
+
+    while True:
+        with session_scope() as session:
+            database_accessor = DatabaseAccessor(session)
+            next_timestamps_for_war = database_accessor.get_timestamps_for_current_war()
         if next_timestamps_for_war is None:
             await asyncio.sleep(3600*6)
         else:
@@ -852,41 +1103,7 @@ async def send_out_war_reminders(database_accessor):
             next_war_timestamp_string = next_timestamps_for_war[0][1]
             time_to_sleep = next_war_timestamp - DateFetcherFormatter.get_utc_timestamp()
             await asyncio.sleep(time_to_sleep)
-
-            # update data to be sure we aren't sending reminders to people who have already attacked, just recently
-            time_checking = add_time_to_check()
-            while last_updated_data_time < time_checking:
-                await asyncio.sleep(1)
-
-            accounts_that_need_to_attack = database_accessor.get_members_in_war_with_attacks_remaining()
-            for discord_id in accounts_that_need_to_attack:
-                account_names_dict = accounts_that_need_to_attack[discord_id]
-                account_names_string = ""
-                accounts_total = len(account_names_dict)
-                current_account = 0
-                for account_name in account_names_dict:
-                    number_of_attacks = account_names_dict[account_name]
-                    if number_of_attacks == 1:
-                        account_names_string += ' your {} attack with {}'.format(
-                            number_of_attacks, account_name)
-                    else:
-                        account_names_string += ' your {} attacks with {}'.format(
-                            number_of_attacks, account_name)
-                    if current_account == accounts_total - 1:
-                        # last account, do nothing at the end
-                        account_names_string += ''
-                    elif current_account == accounts_total - 2 and accounts_total == 2:
-                        account_names_string += ' and'
-                    elif current_account == accounts_total - 2:
-                        account_names_string += ', and'
-                    else:
-                        account_names_string += ','
-                    current_account += 1
-                discord_id = str(discord_id)
-                member = server.get_member(discord_id)
-                await discord_client.send_message(war_channel, 'Hey {}, make sure to use{}! {}'.format(member.mention, account_names_string, next_war_timestamp_string))
-                await asyncio.sleep(1)
-
+            await send_out_war_reminders()
 
 async def createRules():
     rules_channel = discord_client.get_channel(MyConfigBot.rulesChannelID)
@@ -901,6 +1118,18 @@ async def createRules():
             new_embed = discord.Embed(**x)
             await discord_client.send_message(rules_channel, embed=new_embed)
 
+async def notify_if_cwl_roster_needs_set():
+    war_channel = discord_client.get_channel(MyConfigBot.warChannelID)
+    testing_channel = discord_client.get_channel(MyConfigBot.testingChannelID)
+    with session_scope() as session:
+        database_accessor = DatabaseAccessor(session)
+        try:
+            cwl_roster_complete = database_accessor.is_today_cwl_roster_complete()
+        except NoActiveClanWarLeagueWar:
+            return
+        leader = server.get_member(MyConfigBot.leaderDiscordID)
+        if not cwl_roster_complete:
+            await discord_client.send_message(testing_channel, 'Hey {}, the CWL roster is NOT complete, please set it and then save data again so I can apply roles!!'.format(leader.mention))
 
 async def start_gathering_data():
 
@@ -931,7 +1160,7 @@ async def start_gathering_data():
     server = discord_client.get_server(MyConfigBot.server_id)
 
     # discord_client.loop.create_task(send_out_gift_reminders(database_accessor))
-    # discord_client.loop.create_task(send_out_war_reminders(database_accessor))
+    discord_client.loop.create_task(war_reminders_loop())
     # discord_client.loop.create_task(createRules())
 
     await discord_client.send_message(bot_channel, "Coming online")
@@ -990,6 +1219,11 @@ async def start_gathering_data():
                     try:
                         await update_roles()
                         await discord_client.send_message(bot_channel, "Applied roles")
+                        try:
+                            await notify_if_cwl_roster_needs_set()
+                            await discord_client.send_message(bot_channel, "Notified that CWL roster needs set (if it does)")
+                        except Exception:
+                            await discord_client.send_message(bot_channel, "Failed to notify that CWL needs set")
                     except Exception:
                         await discord_client.send_message(bot_channel, "Failed to apply roles")
                 except:

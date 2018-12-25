@@ -4,7 +4,7 @@ from .meta import *
 
 
 class WARPARTICIPATION(Base):
-    __tablename__ = 'WAR_PARTICIPATION'
+    __tablename__ = 'WAR_PARTICIPATIONS'
     __table_args__ = (
         UniqueConstraint('war_id', 'member_tag'),
     )
@@ -26,8 +26,13 @@ class WARPARTICIPATION(Base):
     # attack_occurred_before = Column(Integer)
     # order_number = Column(SmallInteger)
 
-    attack1 = relationship("WARATTACK", backref="war_participation_1", foreign_keys=[attack_1_id])
-    attack2 = relationship("WARATTACK", backref="war_participation_2", foreign_keys=[attack_2_id])
+    # 0 = no
+    # 1 = definitely yes
+    # 2 = thought to be, but not positive
+    is_clan_war_league_war = Column(SmallInteger)
+
+    attack1 = relationship("WARATTACK", backref="war_participation_1", foreign_keys=[attack_1_id], cascade="all,delete,delete-orphan", single_parent=True)
+    attack2 = relationship("WARATTACK", backref="war_participation_2", foreign_keys=[attack_2_id], cascade="all,delete,delete-orphan", single_parent=True)
 
     war = relationship("WAR", back_populates="war_participations")
     member = relationship("MEMBER", back_populates="war_participations")

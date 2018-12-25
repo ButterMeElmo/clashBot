@@ -11,7 +11,6 @@ class MEMBER(Base):
     trophies = Column(Integer)
     town_hall_level = Column(SmallInteger)
 #    last_checked_town_hall = Column(Integer)
-    in_war_currently = Column(Integer)
     last_updated_time = Column(Integer)
 #    free_item_day_of_week = Column(SmallInteger)
 #    free_item_hour_to_remind = Column(SmallInteger)

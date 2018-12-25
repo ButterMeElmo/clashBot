@@ -325,13 +325,6 @@ class FetchedDataProcessor:
             friendly_clan_instance.clan_name = friendly_name
             self.session.add(friendly_clan_instance)
 
-        # reset in_war_currently for all members in our clan or in no clan, as this will be updated in this method
-        # todo- move this to top of function above the return, and accept a clan tag. use that instead of friendly tag.
-        all_members_no_clan = self.session.query(MEMBER).filter(MEMBER.clan_tag == None)
-        all_members_friendly_clan = self.session.query(MEMBER).filter(MEMBER.clan_tag == friendly_tag)
-        all_members_no_clan.update({'in_war_currently': 0})
-        all_members_friendly_clan.update({'in_war_currently': 0})
-
         opponent_name = war['opponent']['name']
         opponent_tag = war['opponent']['tag']
         opponent_stars = war['opponent']['stars']
@@ -431,10 +424,6 @@ class FetchedDataProcessor:
                 if not printed_already:
                     print('change this status string too...')
                     printed_already = True
-                if status == 'in progress':
-                    # query = self.session.query(MEMBER).filter(MEMBER.member_tag == member_tag)
-                    # query.update({'in_war_currently': 1})
-                    member_instance.in_war_currently = 1
 
                 # add the war participation if it doesn't exist yet.
                 if war_instance.clan_war_identifier in member_instance.war_participations:
@@ -443,8 +432,16 @@ class FetchedDataProcessor:
                     war_participation_instance = WARPARTICIPATION()
                     war_participation_instance.war = war_instance
                     war_participation_instance.member = member_instance
+                    war_participation_instance.is_clan_war_league_war = war_instance.is_clan_war_league_war
                     self.session.add(war_participation_instance)
                     # self.session.flush()
+
+                if war_participation_instance.is_clan_war_league_war == 2 and is_clan_war_league == True:
+                    # if we get here, this was manually entered so this attack should already be created.
+                    # This would be one that was manually entered and is now showing up on scans of data too.
+                    war_participation_instance.is_clan_war_league_war = 1
+                    war_participation_instance.attack1.attacker_position = member_map_position
+                    war_participation_instance.attack1.attacker_town_hall = member_town_hall
 
                 # always make sure we have a war attack 1 for this member in this war
                 if war_participation_instance.attack1 is None:
@@ -452,7 +449,6 @@ class FetchedDataProcessor:
                     attack_1_instance.attacker_attack_number = 1
                     attack_1_instance.war = war_instance
                     attack_1_instance.member = member_instance
-                    attack_1_instance.is_clan_war_league_attack = war_instance.is_clan_war_league_war
                     attack_1_instance.attacker_tag = member_tag
                     attack_1_instance.attacker_position = member_map_position
                     attack_1_instance.attacker_town_hall = member_town_hall
@@ -467,7 +463,6 @@ class FetchedDataProcessor:
                         attack_2_instance.attacker_attack_number = 2
                         attack_2_instance.war = war_instance
                         attack_2_instance.member = member_instance
-                        attack_2_instance.is_clan_war_league_attack = 0
                         attack_2_instance.attacker_tag = member_tag
                         attack_2_instance.attacker_position = member_map_position
                         attack_2_instance.attacker_town_hall = member_town_hall

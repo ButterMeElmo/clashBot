@@ -15,7 +15,7 @@ import date_fetcher_formatter
 import config_strings
 
 from ClashBot import DateFetcherFormatter, MyConfigBot
-from ClashBot.models import DISCORDCLASHLINK, MEMBER, WARATTACK, WAR, DISCORDACCOUNT
+from ClashBot.models import DISCORDCLASHLINK, MEMBER, WARATTACK, WAR, DISCORDACCOUNT, WARPARTICIPATION
 
 from sqlalchemy.sql.expression import func
 
@@ -24,6 +24,14 @@ db_file = "clashData.db"
 
 
 class NoDataDuringTimeSpanException(Exception):
+    pass
+
+
+class NoActiveClanWarLeagueWar(Exception):
+    pass
+
+
+class NoActiveClanWar(Exception):
     pass
 
 
@@ -48,11 +56,76 @@ class DatabaseAccessor:
 
         return actual_results
 
+    def get_today_cwl_war(self):
+        current_time = DateFetcherFormatter.get_utc_timestamp()
+        war_instance = self.session.query(WAR) \
+            .filter(WAR.is_clan_war_league_war == 1) \
+            .filter(WAR.war_day_start <= current_time) \
+            .filter(WAR.war_day_end >= current_time).one_or_none()
+        if war_instance is None:
+            raise NoActiveClanWarLeagueWar()
+        return war_instance
+
+    def get_tomorrow_cwl_war(self):
+        current_time = DateFetcherFormatter.get_utc_timestamp()
+        war_instance = self.session.query(WAR) \
+            .filter(WAR.is_clan_war_league_war == 1) \
+            .filter(WAR.prep_day_start <= current_time) \
+            .filter(WAR.war_day_start >= current_time).one_or_none()
+        if war_instance is None:
+            raise NoActiveClanWarLeagueWar()
+        return war_instance
+
+    def get_cwl_roster_and_war_today(self):
+        war_instance = self.get_today_cwl_war()
+        return self.session.query(WARPARTICIPATION) \
+            .filter(WARPARTICIPATION.war == war_instance).all(), war_instance
+
+    def get_cwl_roster_and_war_tomorrow(self):
+        war_instance = self.get_tomorrow_cwl_war()
+        return self.session.query(WARPARTICIPATION) \
+            .filter(WARPARTICIPATION.war == war_instance).all(), war_instance
+
+    def is_today_cwl_roster_complete(self):
+        roster, _ = self.get_cwl_roster_and_war_today()
+        return len(roster) == 15
+
+    def is_tomorrow_cwl_roster_complete(self):
+        roster, _ = self.get_cwl_roster_and_war_tomorrow()
+        return len(roster) == 15
+
+    def add_member_to_cwl(self, member_instance, war_instance):
+        # todo this data should be added to the exporter
+        war_participation_instance = WARPARTICIPATION()
+        war_participation_instance.war = war_instance
+        war_participation_instance.member = member_instance
+        # 2 means we think
+        war_participation_instance.is_clan_war_league_war = 2
+        attack_1_instance = WARATTACK()
+        attack_1_instance.attacker_attack_number = 1
+        attack_1_instance.war = war_instance
+        attack_1_instance.member = member_instance
+        attack_1_instance.attacker_tag = member_instance.member_tag
+        war_participation_instance.attack1 = attack_1_instance
+        self.session.add(war_participation_instance)
+
+    def remove_member_from_current_cwl(self, member_instance, war_instance):
+        for war_participation_instance in war_instance.war_participations:
+            if war_participation_instance.member == member_instance:
+                self.session.delete(war_participation_instance)
+                break
+
+    def get_members_in_clan_with_name(self, member_name, clan_tag=MyConfigBot.my_clan_tag):
+        return self.session.query(MEMBER) \
+            .filter(MEMBER.clan_tag == clan_tag) \
+            .filter(func.upper(MEMBER.member_name) == member_name).all()
+
     def get_timestamps_for_current_war(self):
-        #todo  fix me
+
         current_timestamp = DateFetcherFormatter.get_utc_timestamp()
 
-        war_end_time = self.session.query(WAR.war_day_end)\
+        war_end_time = self.session.query(WAR.war_day_end) \
+            .filter(WAR.war_day_start < current_timestamp) \
             .filter(WAR.war_day_end > current_timestamp).scalar()
 
         if war_end_time is None:
@@ -76,28 +149,43 @@ class DatabaseAccessor:
             else:
                 return results
 
-    def get_members_in_war_with_attacks_remaining(self, clan_tag):
+    def get_members_in_war_with_attacks_remaining(self, clan_tag=MyConfigBot.my_clan_tag):
 
-        war_instance = self.session.query(WAR).order_by(WAR.war_id.desc()).limit(1).first()
+        current_time = DateFetcherFormatter.get_utc_timestamp()
+        current_war = self.session.query(WAR) \
+            .filter(WAR.friendly_tag == clan_tag) \
+            .filter(WAR.war_day_start < current_time) \
+            .filter(WAR.war_day_end > current_time).one_or_none()
 
-        war_attacks_unused = self.session.query(MEMBER.member_name, DISCORDCLASHLINK.discord_tag) \
-            .join(WARATTACK) \
-            .join(DISCORDCLASHLINK) \
-            .filter(WARATTACK.war == war_instance) \
-            .filter(MEMBER.clan_tag == clan_tag) \
-            .filter(WARATTACK.defender_tag == None).all()  # noqa
+        if current_war is None:
+            raise NoActiveClanWar()
+        else:
+            results = {
+                "discord": {},
+                "no_discord": []
+            }
+            for war_participation in current_war.war_participations:
+                member = war_participation.member
 
-        pretty_results = {}
-        for entry in war_attacks_unused:
-            member_name = entry[0]
-            discord_id = entry[1]
-            if discord_id not in pretty_results:
-                pretty_results[discord_id] = {}
-            if member_name not in pretty_results[discord_id]:
-                pretty_results[discord_id][member_name] = 0
-            pretty_results[discord_id][member_name] += 1
+                attacks_remaining = 0
+                if war_participation.attack1.stars is None:
+                    attacks_remaining = 2
+                elif war_participation.attack2.stars is None:
+                    attacks_remaining = 1
 
-        return pretty_results
+                if attacks_remaining != 0:
+                    these_results = {
+                        "member_name": member.member_name,
+                        "attacks_remaining": attacks_remaining
+                    }
+                    if len(member.discord_clash_links) == 0:
+                        results["no_discord"].append(these_results)
+                    for discord_clash_link in member.discord_clash_links:
+                        discord_id = discord_clash_link.discord_tag
+                        if discord_id not in results["discord"]:
+                            results["discord"][discord_id] = []
+                        results["discord"][discord_id].append(these_results)
+            return results
 
     def link_discord_account(self, discord_identifier, clash_identifier, is_name=False):
 
@@ -184,18 +272,32 @@ class DatabaseAccessor:
         return actual_results
 
     def get_discord_members_in_war(self):
-        results = self.session.query(DISCORDACCOUNT) \
-            .join(DISCORDCLASHLINK) \
-            .join(MEMBER) \
-            .filter(MEMBER.in_war_currently == 1) \
-            .all()
+        # find the active war day, if there is one
+        current_time = DateFetcherFormatter.get_utc_timestamp()
+        war_instance = self.session.query(WAR) \
+            .filter(WAR.war_day_start <= current_time) \
+            .filter(WAR.war_day_end >= current_time).one_or_none()
 
-        actual_results = set()
+        if war_instance is None:
+            # find a prep day if there is no active war day
+            war_instance = self.session.query(WAR) \
+                .filter(WAR.prep_day_start <= current_time) \
+                .filter(WAR.war_day_start >= current_time).one_or_none()
 
-        for discord_account in results:
-            actual_results.add(str(discord_account.discord_tag))
+        # if no prep day, we aren't in war at all
+        if war_instance is None:
+            raise NoActiveClanWar()
 
-        return actual_results
+        war_particips = self.session.query(WARPARTICIPATION).filter(WARPARTICIPATION.war == war_instance).all()
+
+        clash_account_numbers = set()
+
+        for war_particip in war_particips:
+            member = war_particip.member
+            for discord_clash_link in member.discord_clash_links:
+                clash_account_numbers.add(str(discord_clash_link.discord_tag))
+
+        return clash_account_numbers
 
     def get_discord_ids_of_members_with_war_permissions(self):
         results = self.session.query(DISCORDACCOUNT) \
@@ -228,6 +330,38 @@ class DatabaseAccessor:
                 actual_results.append(member.member_name)
 
         return actual_results
+
+    def get_members_by_offensive_score(self, clan_tag=MyConfigBot.my_clan_tag):
+        # implement this?
+        all_members_in_clan = self.session.query(MEMBER).filter(MEMBER.clan_tag == clan_tag).all()
+
+        return all_members_in_clan
+        # scores = {}
+        # for member in all_members_in_clan:
+        #     member_score = member.town_hall_level*3
+        #     member_score += member.king_level
+        #     member_score += member.queen_level
+        #     member_score += member.warden_level
+        #     season_historical_data_instance = member.season_historical_data[-1]
+        #     member_score += int(season_historical_data_instance.troops_donated / 10)
+        #     member_score += season_historical_data_instance.attacks_won
+        #     if member_score not in scores:
+        #         scores[member_score] = []
+        #     scores[member_score].append(member)
+        #
+        # counter = 1
+        # for score in sorted(scores, reverse=True):
+        #     for member in scores[score]:
+        #         season_historical_data_instance = member.season_historical_data[-1]
+        #         print('{}) {}:'.format(counter, member.member_name))
+        #         print('    TH   : {}'.format(member.town_hall_level))
+        #         print('    King : {}'.format(member.king_level))
+        #         print('    Queen: {}'.format(member.queen_level))
+        #         print('    GW   : {}'.format(member.warden_level))
+        #         print('    Donat: {}'.format(season_historical_data_instance.troops_donated))
+        #         print('    Attac: {}'.format(season_historical_data_instance.attacks_won))
+        #         counter += 1
+        #         pass
 
 def getCursorAndConnection():
     conn = sqlite3.connect(db_file)

@@ -24,11 +24,6 @@ class WARATTACK(Base):
     attack_occurred_before = Column(Integer)
     order_number = Column(SmallInteger)
 
-    # 0 = no
-    # 1 = definitely yes
-    # 2 = thought to be, but not positive
-    is_clan_war_league_attack = Column(SmallInteger)
-
     war = relationship("WAR", backref="war_attack")
     member = relationship("MEMBER", backref="war_attack")
 

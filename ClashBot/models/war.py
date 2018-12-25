@@ -34,7 +34,6 @@ class WAR(Base):
     def clan_war_identifier(self):
         return (self.friendly_tag, self.enemy_tag, int(self.prep_day_start))
 
-    # don't use this one
     war_participations = relationship("WARPARTICIPATION",
                                       back_populates="war",
                                       # collection_class=attribute_mapped_collection('war_id')
