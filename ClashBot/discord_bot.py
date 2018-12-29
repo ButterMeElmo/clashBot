@@ -893,7 +893,7 @@ class TraderShop:
             if not selected:
                 await discord_client.say("You didn't select an account to check")
 
-    @commands.command(name='checktraderday', pass_context=True)
+    @commands.command(name='checkmytraderday', pass_context=True)
     @commands.has_role("members")
     async def get_trader_day(self, ctx):
         discord_id = ctx.message.author.id
