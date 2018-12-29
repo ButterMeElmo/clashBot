@@ -519,7 +519,7 @@ class ClanWar:
     @commands.has_role("coleaders")
     async def remind_members_to_attack_in_war(self, ctx):
         await discord_client.say("Reminders are being processed and will be sent momentarily!!")
-        await send_out_war_reminders()
+        await send_out_war_reminders("")
 
     # use this right after asking for the member name
     async def get_member_instance_from_name_helper(self, ctx, database_accessor):
@@ -1137,13 +1137,9 @@ async def trader_reminders_loop():
         await asyncio.sleep(time_to_sleep.total_seconds())
 
 
-async def send_out_war_reminders():
+async def send_out_war_reminders(next_war_timestamp_string):
     war_channel = discord_client.get_channel(MyConfigBot.warChannelID)
     bot_channel = discord_client.get_channel(MyConfigBot.testingChannelID)
-    # update data to be sure we aren't sending reminders to people who have already attacked, just recently
-    # time_checking = add_time_to_check()
-    # while last_updated_data_time < time_checking:
-    #     await asyncio.sleep(1)
 
     with session_scope() as session:
         database_accessor = DatabaseAccessor(session)
@@ -1152,8 +1148,6 @@ async def send_out_war_reminders():
         except NoActiveClanWar:
             await discord_client.say("There is no active clan war.")
             return
-        next_timestamps_for_war = database_accessor.get_timestamps_for_current_war()
-        next_war_timestamp_string = next_timestamps_for_war[0][1]
     for discord_id in accounts_that_need_to_attack["discord"]:
         account_names_dict = accounts_that_need_to_attack["discord"][discord_id]
         account_names_string = ""
@@ -1194,7 +1188,7 @@ async def war_reminders_loop():
             next_war_timestamp_string = next_timestamps_for_war[0][1]
             time_to_sleep = next_war_timestamp - DateFetcherFormatter.get_utc_timestamp()
             await asyncio.sleep(time_to_sleep)
-            await send_out_war_reminders()
+            await send_out_war_reminders(next_war_timestamp_string)
 
 async def createRules():
     rules_channel = discord_client.get_channel(MyConfigBot.rulesChannelID)
