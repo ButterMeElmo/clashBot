@@ -260,7 +260,6 @@ class AccountManagement:
     #     await discord_client.say(result)
 
     @commands.command(name='checkmylinkedaccounts', pass_context=True,  brief='Check which clash accounts you have linked')
-    @commands.has_role("developers")
     async def check_linked_accounts(self, ctx, discord_id=None):
         """Check which Clash accounts are linked with your discord."""
         with session_scope() as session:
@@ -268,6 +267,9 @@ class AccountManagement:
             if discord_id is None:
                 discord_id = ctx.message.author.id
             results = database_accessor.get_linked_accounts(discord_id)
+            if len(results) == 0:
+                await discord_client.say("No linked accounts")
+                return
             output = "You own these:\n"
             for member in results:
                 output += member.member_name + "\n"
