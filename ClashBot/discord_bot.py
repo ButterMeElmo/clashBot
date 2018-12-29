@@ -769,7 +769,7 @@ class ClanManagement:
         await discord_client.say(result_string)
 
     @commands.command(name='getallmemberswithoutdiscord', pass_context=True)
-    @commands.has_role("developers")
+    @commands.has_role("coleaders")
     async def get_all_members_without_discord(self, ctx):
         with session_scope() as session:
             database_accessor = DatabaseAccessor(session)
