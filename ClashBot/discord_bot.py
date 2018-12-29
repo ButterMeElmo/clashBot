@@ -7,7 +7,7 @@ import datetime
 import pytz
 from discord.ext import commands
 #import clashWebServer
-from ClashBot import FetchedDataProcessor, DatabaseAccessor, DateFetcherFormatter, MyConfigBot, SupercellDataFetcher, FetchedDataProcessorHelper, NoActiveClanWarLeagueWar, NoActiveClanWar
+from ClashBot import FetchedDataProcessor, DatabaseAccessor, DateFetcherFormatter, MyConfigBot, SupercellDataFetcher, FetchedDataProcessorHelper, NoActiveClanWarLeagueWar, NoActiveClanWar, TraderAccountNotConfigured, TraderInvalidInput, TraderAccountNotConfigured
 from my_help_formatter import MyHelpFormatter, _default_help_command
 # import clashAccessData
 # import MyConfigBot
@@ -122,44 +122,6 @@ class AccountManagement:
     #     account_name = account_name.upper()
     #     results = clashAccessData.remove_discord_accounts_related_to(account_name)
     #     await discord_client.say('{} removed.'.format(results))
-
-    @commands.command(name='setgiftreminder', pass_context=True,  brief='Set a reminder to collect your free gifts')
-    @commands.has_role("developers")
-    async def set_gift_reminder(self, ctx):
-        """Once a week, the trader brings a free potion for you. On that day, run this command, and then clashBot will remind you each week to collect the free potion!"""
-        discord_id = ctx.message.author.id
-        dt = DateFetcherFormatter.get_utc_date_time()
-        day_of_week = dt.weekday()
-        hour = dt.hour
-
-        accounts = clashAccessData.getLinkedAccountsList(discord_id)
-
-        if len(accounts) == 0:
-            await discord_client.say('you must link accounts first!')
-        else:
-
-            await discord_client.say('Which accounts got free gifts today?')
-            for i in range(len(accounts)):
-                account = accounts[i]
-                message = await discord_client.say('{}) {}\n'.format(i + 1, account))
-
-                async def waitForResult(account, message, ctx):
-                    await discord_client.add_reaction(message, config_strings.checkmark)
-                    await discord_client.add_reaction(message, config_strings.xmark)
-
-                    result = await discord_client.wait_for_reaction([config_strings.checkmark, config_strings.xmark], message=message, user=ctx.message.author)
-                    if result.reaction.emoji == config_strings.checkmark:
-                        result_string_temp = clashAccessData.setMemberFreeGiftDayAndTime(
-                            account, day_of_week, hour, discord_id)
-                        if result_string_temp == config_strings.success:
-                            result_string = 'Set gift reminder for {}.'.format(
-                                account)
-                        else:
-                            result_string = 'Failed to set gift reminder for {}.'.format(
-                                account)
-                        await discord_client.send_message(ctx.message.channel, result_string)
-
-                discord_client.loop.create_task(waitForResult(account, message, ctx))
 
     @commands.command(name='start', pass_context=True,  brief='Connect your discord to a clash account')
     async def start(self, ctx):
@@ -301,10 +263,15 @@ class AccountManagement:
     @commands.has_role("developers")
     async def check_linked_accounts(self, ctx, discord_id=None):
         """Check which Clash accounts are linked with your discord."""
-        if discord_id is None:
-            discord_id = ctx.message.author.id
-        results = clashAccessData.getLinkedAccounts(discord_id)
-        await discord_client.say(results)
+        with session_scope() as session:
+            database_accessor = DatabaseAccessor(session)
+            if discord_id is None:
+                discord_id = ctx.message.author.id
+            results = database_accessor.get_linked_accounts(discord_id)
+            output = "You own these:\n"
+            for member in results:
+                output += member.member_name + "\n"
+            await discord_client.say(output)
 
     def process_role_request(self, discordID, val):
         result = clashAccessData.setTroopDonator(discordID, val)
@@ -870,8 +837,117 @@ class ClanManagement:
     #         await discord_client.say('Unable to find this account')
 
 
-clan_war_clog = ClanWar()
-discord_client.add_cog(clan_war_clog)
+class TraderShop:
+    @commands.command(name='setuptrader', pass_context=True)
+    @commands.has_role("developers")
+    async def setup_trader(self, ctx):
+        pass
+
+
+    @commands.command(name='settradernotificationtime', pass_context=True)
+    @commands.has_role("developers")
+    async def set_notification_time(self, ctx):
+        discord_id = ctx.message.author.id
+        dt = DateFetcherFormatter.get_utc_date_time()
+        hour = dt.hour
+
+        message = await discord_client.say("Is about now a good time for trader reminders? (Default is 12:30 AM UTC)")
+        await discord_client.add_reaction(message, config_strings.checkmark)
+        await discord_client.add_reaction(message, config_strings.xmark)
+        result = await discord_client.wait_for_reaction([config_strings.checkmark, config_strings.xmark], message=message, user=ctx.message.author)
+        hit_check = (result.reaction.emoji == config_strings.checkmark)
+        if hit_check:
+            with session_scope() as session:
+                database_accessor = DatabaseAccessor(session)
+                database_accessor.set_gift_time_for_discord_id(discord_id, hour)
+            await discord_client.say("Done.")
+        else:
+            await discord_client.say("Ok, nevermind.")
+
+
+    @commands.command(name='settraderday', pass_context=True)
+    @commands.has_role("developers")
+    async def set_trader_day(self, ctx):
+        discord_id = ctx.message.author.id
+        with session_scope() as session:
+            database_accessor = DatabaseAccessor(session)
+            linked_member_accounts = database_accessor.get_linked_accounts(discord_id)
+            await discord_client.say("Which account would you like to set it for?")
+            selected = False
+            for member in linked_member_accounts:
+                message = await discord_client.say(member.member_name)
+                await discord_client.add_reaction(message, config_strings.checkmark)
+                await discord_client.add_reaction(message, config_strings.xmark)
+                result = await discord_client.wait_for_reaction([config_strings.checkmark, config_strings.xmark], message=message, user=ctx.message.author)
+                hit_check = (result.reaction.emoji == config_strings.checkmark)
+                if hit_check:
+                    selected = True
+                    trader_cycle_length = database_accessor.get_trader_cycle_length()
+                    await discord_client.say('What trader cycle day is it? (Enter a number 1-{})'.format(trader_cycle_length))
+                    message = await discord_client.wait_for_message(author=ctx.message.author)
+                    try:
+                        day_in_cycle = int(message.content)
+                    except:
+                        await discord_client.say("Failed to parse your input.")
+                        return
+                    try:
+                        database_accessor.set_gift_day_for_member(member, day_in_cycle)
+                    except TraderAccountNotConfigured:
+                        await discord_client.say("This was not valid input.")
+                        return
+                    await discord_client.say("Done!")
+                    break
+            if not selected:
+                await discord_client.say("You didn't select an account to check")
+
+    @commands.command(name='gettraderday', pass_context=True)
+    @commands.has_role("developers")
+    async def get_trader_day(self, ctx):
+        discord_id = ctx.message.author.id
+        with session_scope() as session:
+            database_accessor = DatabaseAccessor(session)
+            results = database_accessor.get_linked_accounts(discord_id)
+            await discord_client.say("Which account would you like to get it for?")
+            selected = False
+            for member in results:
+                message = await discord_client.say(member.member_name)
+                await discord_client.add_reaction(message, config_strings.checkmark)
+                await discord_client.add_reaction(message, config_strings.xmark)
+                result = await discord_client.wait_for_reaction([config_strings.checkmark, config_strings.xmark], message=message, user=ctx.message.author)
+                hit_check = (result.reaction.emoji == config_strings.checkmark)
+                if hit_check:
+                    selected = True
+                    try:
+                        result = database_accessor.get_gift_day_for_member(member)
+                    except TraderAccountNotConfigured:
+                        await discord_client.say("This account hasn't been set up for the trader shop.")
+                        return
+                    await discord_client.say("This account is on day {} of the trader cycle.".format(result))
+                    break
+            if not selected:
+                await discord_client.say("You didn't select an account to check")
+
+    @commands.command(name='setitemsfornotification', pass_context=True)
+    @commands.has_role("developers")
+    async def set_items_for_notification(self, ctx):
+        pass
+
+    @commands.command(name='enablenotifications', pass_context=True)
+    @commands.has_role("developers")
+    async def enable_notifications(self, ctx):
+        pass
+
+    @commands.command(name='disablenotifications', pass_context=True)
+    @commands.has_role("developers")
+    async def disable_notifications(self, ctx):
+        pass
+
+
+trader_shop_cog = TraderShop()
+discord_client.add_cog(trader_shop_cog)
+
+clan_war_cog = ClanWar()
+discord_client.add_cog(clan_war_cog)
 
 clan_management_cog = ClanManagement()
 discord_client.add_cog(clan_management_cog)
@@ -1029,25 +1105,37 @@ def add_time_to_check():
     return timestampTest
 
 
-async def send_out_gift_reminders(database_accessor):
-    return
+async def send_out_gift_reminders():
     bot_channel = discord_client.get_channel(botChannelID)
     general_channel = discord_client.get_channel(MyConfigBot.generalChannelID)
 
-    while True:
-        current_date_time = DateFetcherFormatter.get_utc_date_time()
-        current_date_time_timestamp = int(current_date_time.timestamp())
-        accounts_with_gifts_on_it = clashAccessData.getAccountsWhoGetGiftReminders(
-            current_date_time)
-        for entry in accounts_with_gifts_on_it:
-            discord_id = str(entry['discord'])
-            account_name = entry['account_name']
+    with session_scope() as session:
+        database_accessor = DatabaseAccessor(session)
+        results = database_accessor.get_accounts_who_get_gift_reminders()
+        print(results)
+        for discord_id, accounts_dict in results.items():
+            discord_id = str(discord_id)
             member = server.get_member(discord_id)
-            await discord_client.send_message(bot_channel, 'Hey {}, {} gets a free gift today!'.format(member.mention, account_name))
-            await asyncio.sleep(1)
-        next_timestamp = current_date_time_timestamp + 3600
-        time_to_sleep = next_timestamp - current_date_time_timestamp
-        await asyncio.sleep(time_to_sleep)
+            for account_name, items in accounts_dict.items():
+                for item in items:
+                    await discord_client.send_message(bot_channel, 'Hey {}, {} gets a {} today!'.format(member.mention, account_name, item))
+                    await asyncio.sleep(1)
+
+
+async def gift_reminders_loop():
+    while True:
+        # send out current reminders
+        # sleep if before 30, todo
+        await send_out_gift_reminders()
+
+        current_time = DateFetcherFormatter.get_utc_date_time()
+        next_time = current_time + datetime.timedelta(hours=1)
+        next_time = next_time.replace(minute=30, second=0)
+        time_to_sleep = next_time - current_time
+
+        # sleep for an hour
+        await asyncio.sleep(time_to_sleep.total_seconds())
+
 
 async def send_out_war_reminders():
     war_channel = discord_client.get_channel(MyConfigBot.warChannelID)
@@ -1134,9 +1222,9 @@ async def notify_if_cwl_roster_needs_set():
         if not cwl_roster_complete:
             await discord_client.send_message(testing_channel, 'Hey {}, the CWL roster is NOT complete, please set it and then save data again so I can apply roles!!'.format(leader.mention))
 
-async def start_gathering_data():
+async def discord_bot_data_loop():
 
-    print('start_gathering_data starting')
+    print('discord_bot_data_loop starting')
 
     global times_to_check_data
     # global last_updated_data
@@ -1162,7 +1250,7 @@ async def start_gathering_data():
     global server
     server = discord_client.get_server(MyConfigBot.server_id)
 
-    # discord_client.loop.create_task(send_out_gift_reminders(database_accessor))
+    discord_client.loop.create_task(gift_reminders_loop())
     discord_client.loop.create_task(war_reminders_loop())
     # discord_client.loop.create_task(createRules())
 
@@ -1237,7 +1325,7 @@ async def start_gathering_data():
     except Exception as err:
         print("Error: " + str(err))
 
-discord_client.loop.create_task(start_gathering_data())
+discord_client.loop.create_task(discord_bot_data_loop())
 
 discordToken = MyConfigBot.token
 discord_client.run(discordToken)

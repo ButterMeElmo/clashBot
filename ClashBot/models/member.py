@@ -12,7 +12,7 @@ class MEMBER(Base):
     town_hall_level = Column(SmallInteger)
 #    last_checked_town_hall = Column(Integer)
     last_updated_time = Column(Integer)
-#    free_item_day_of_week = Column(SmallInteger)
+    trader_rotation_offset = Column(SmallInteger)
 #    free_item_hour_to_remind = Column(SmallInteger)
 #    wants_gift_reminder = Column(SmallInteger)
 #    wants_war_reminder = Column(SmallInteger)

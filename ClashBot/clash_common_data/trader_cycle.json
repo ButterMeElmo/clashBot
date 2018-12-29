@@ -1,0 +1,46 @@
+{
+    "cycle_length": 39,
+    "last_updated": 1545952083,
+    "high_value_days": {
+        "1": [{
+            "type": "builder potion",
+            "cost": 0
+        }],
+        "6": [{
+            "type": "hero book",
+            "cost": 500
+        }],
+        "8": [{
+            "type": "boosting potion",
+            "cost": 0
+        }],
+        "12": [{
+            "type": "boosting potion",
+            "cost": 0
+        }],
+        "21": [{
+            "type": "builder potion",
+            "cost": 0
+        }],
+        "23": [{
+            "type": "hero book",
+            "cost": 500
+        }],
+        "29": [{
+            "type": "hero book",
+            "cost": 500
+        }],
+        "31": [{
+            "type": "builder potion",
+            "cost": 0
+        }],
+        "33": [{
+            "type": "hero book",
+            "cost": 500
+        }],
+        "35": [{
+            "type": "boosting potion",
+            "cost": 0
+        }]
+    }
+}

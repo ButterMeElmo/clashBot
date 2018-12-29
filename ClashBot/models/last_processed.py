@@ -6,3 +6,4 @@ class LASTPROCESSED(Base):
     id = Column(Integer, primary_key=True, unique=True)
     time = Column(Integer)
 
+    # 1 is last saved

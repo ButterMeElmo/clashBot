@@ -15,7 +15,7 @@ import math
 from ClashBot import DateFetcherFormatter, SupercellDataFetcher
 from ClashBot.models import ACCOUNTNAME, CLAN, MEMBER, SCANNEDDATA, WAR, WARATTACK, CLANGAME, SEASON, \
     CALCULATEDTROOPSSPELLSSIEGE, SEASONHISTORICALDATA, CLANGAMESSCORE, WARPARTICIPATION, DISCORDACCOUNT, \
-    DISCORDCLASHLINK, LASTPROCESSED
+    DISCORDCLASHLINK, LASTPROCESSED, TRADERDATA, TRADERITEM
 
 from ClashBot import MyConfigBot
 
@@ -73,6 +73,15 @@ class FetchedDataProcessor:
         self.previous_processed_time = self.session.query(LASTPROCESSED.time).filter(LASTPROCESSED.id == 1).scalar()
         if self.previous_processed_time is None:
             self.previous_processed_time = 0
+
+        # add trader day base for calculations
+        trader_start_calc_time = self.session.query(TRADERDATA.value).filter(TRADERDATA.id == 1).scalar()
+        if trader_start_calc_time is None:
+            trader_start_calc_time = TRADERDATA()
+            trader_start_calc_time.id = 1
+            # This should be some date in the past at 12 am GMT
+            trader_start_calc_time.value = 1506816000
+            self.session.add(trader_start_calc_time)
 
         if self.previous_processed_time == 0:
             print('Performing initial run!')
@@ -552,6 +561,7 @@ class FetchedDataProcessor:
             discord_account_instance.is_troop_donator = discord_account['isDonator']
             discord_account_instance.has_permission_to_set_war_status = discord_account['hasWarPerms']
             discord_account_instance.time_last_checked_in = discord_account['lastCheckedTime']
+            discord_account_instance.trader_shop_reminder_hour = discord_account['traderReminderHour']
             discord_account_instances[discord_tag] = discord_account_instance
 
         # self.session.flush()
@@ -570,15 +580,65 @@ class FetchedDataProcessor:
                     found = True
 
             if not found:
-                continue
+                print("Creating dummy member")
+                dummy = MEMBER()
+                dummy.member_tag = clash_tag_looking_for
+                discord_clash_link_instance.clash_account = member
 
             discord_tag = discord_name['discordID']
             discord_clash_link_instance.discord_account = discord_account_instances[discord_tag]
             self.session.add(discord_clash_link_instance)
 
     def import_trader_data_to_db(self):
-        pass
 
+        # read in the trader data json
+        trader_data = json.load(open('clash_common_data/trader_cycle.json'))
+
+        # see if the data needs updated - either it didn't exist or is older than what we have
+        updating = False
+        trader_data_updated = trader_data["last_updated"]
+        trader_data_updated_instance = self.session.query(TRADERDATA).filter(TRADERDATA.id == 3).one_or_none()
+        if trader_data_updated_instance is None:
+            # didn't exist
+            trader_data_updated_instance = TRADERDATA()
+            trader_data_updated_instance.id = 3
+            trader_data_updated_instance.value = trader_data_updated
+            updating = True
+            self.session.add(trader_data_updated_instance)
+        else:
+            # existed, lets see if it's older than the data we just read in
+            if trader_data_updated_instance.value < trader_data_updated:
+                updating = True
+                trader_data_updated_instance.value = trader_data_updated
+
+        # this is if either of the two above cases are true
+        if updating:
+
+            print("Updating trader data")
+
+            # get/create the instance where cycle length is stored
+            trader_cycle_length_instance = self.session.query(TRADERDATA).filter(TRADERDATA.id == 2).one_or_none()
+            if trader_cycle_length_instance is None:
+                trader_cycle_length_instance = TRADERDATA()
+                trader_cycle_length_instance.id = 2
+                self.session.add(trader_cycle_length_instance)
+
+            # add/update the trader cycle length
+            cycle_length = trader_data["cycle_length"]
+            trader_cycle_length_instance.value = cycle_length
+
+            # delete all the old entryies
+            self.session.query(TRADERITEM).delete()
+
+            # read in the new ones
+            for day_number, list_of_items in trader_data["high_value_days"].items():
+                day_number = int(day_number)
+                for item in list_of_items:
+                    item_instance = TRADERITEM()
+                    item_instance.cost = item["cost"]
+                    item_instance.day_in_rotation = day_number
+                    item_instance.name = item["type"]
+                    self.session.add(item_instance)
 
     def import_clan_games_metadata(self):
 
@@ -997,8 +1057,11 @@ class FetchedDataProcessor:
             print('importing linked accounts')
             self.import_linked_accounts_to_db()
 
-            print('importing trader data')
-            self.import_trader_data_to_db()
+            print('importing trader player data')
+            # self.import_trader_data_to_db()
+
+        print('importing trader shop data')
+        self.import_trader_data_to_db()
 
         print('importing clan games metadata')
         self.import_clan_games_metadata()

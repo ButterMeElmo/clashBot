@@ -11,7 +11,7 @@ cursor = conn.cursor()
 cursor.execute("PRAGMA foreign_keys = ON")
 
 query = '''
-	SELECT discord_tag, is_troop_donator, has_permission_to_set_war_status, time_last_checked_in FROM DISCORD_ACCOUNTS
+	SELECT discord_tag, is_troop_donator, has_permission_to_set_war_status, time_last_checked_in, trader_shop_reminder_hour FROM DISCORD_ACCOUNTS
 	'''
 cursor.execute(query)
 discordProperties = cursor.fetchall()
@@ -22,6 +22,7 @@ for discordPropertyPiece in discordProperties:
     discordPropertyDict['isDonator'] = discordPropertyPiece[1]
     discordPropertyDict['hasWarPerms'] = discordPropertyPiece[2]
     discordPropertyDict['lastCheckedTime'] = discordPropertyPiece[3]
+    discordPropertyDict['traderReminderHour'] = discordPropertyPiece[4]
     discordPropertyList.append(discordPropertyDict)
 
 
