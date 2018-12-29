@@ -476,6 +476,10 @@ class DatabaseAccessor:
 
         return results
 
+    def get_trader_cycle_url(self):
+        # todo load this into db
+        return "https://www.reddit.com/r/ClashOfClans/comments/a5hx4z/misc_trader_cycle_after_the_december_2018_update/"
+
     def get_discord_account(self, discord_id):
         return self.session.query(DISCORDACCOUNT).filter(DISCORDACCOUNT.discord_tag == discord_id).one()
 

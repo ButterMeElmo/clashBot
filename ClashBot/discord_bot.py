@@ -841,38 +841,31 @@ class ClanManagement:
 
 class TraderShop:
     @commands.command(name='setuptrader', pass_context=True)
-    @commands.has_role("developers")
-    async def setup_trader(self, ctx):
-        pass
-
-    @commands.command(name='settradernotificationtime', pass_context=True)
     @commands.has_role("members")
-    async def set_notification_time(self, ctx):
-        discord_id = ctx.message.author.id
-        dt = DateFetcherFormatter.get_utc_date_time()
-        hour = dt.hour
-
-        message = await discord_client.say("Is about now a good time for trader reminders? (Default is 12:30 AM UTC)")
+    async def setup_trader(self, ctx):
+        with session_scope() as session:
+            database_accessor = DatabaseAccessor(session)
+            trader_cycle_url = database_accessor.get_trader_cycle_url()
+        intro_string = "As you likely know, the Trader sells items. Sometimes, these items are free, and sometimes they are considered a good value." \
+            + " Before setting up your trader with ClashBot, please make sure you know what trader day your account is on! You can find it through this chart: {}".format(trader_cycle_url)
+        await discord_client.say(intro_string)
+        message = await discord_client.say("Do you know what trader day you are on?")
         await discord_client.add_reaction(message, config_strings.checkmark)
         await discord_client.add_reaction(message, config_strings.xmark)
-        result = await discord_client.wait_for_reaction([config_strings.checkmark, config_strings.xmark], message=message, user=ctx.message.author)
+        result = await discord_client.wait_for_reaction([config_strings.checkmark, config_strings.xmark], message=message, user=ctx.message.author, timeout=120)
         hit_check = (result.reaction.emoji == config_strings.checkmark)
         if hit_check:
-            with session_scope() as session:
-                database_accessor = DatabaseAccessor(session)
-                database_accessor.set_trader_time_for_discord_id(discord_id, hour)
-            await discord_client.say("Done.")
-        else:
-            await discord_client.say("Ok, nevermind.")
+            await self.set_trader_day(ctx)
+            await discord_client.say("Be on the lookout for any reminders about free/high value items!")
+            return
+        await discord_client.say("Exiting. Please feel free to restart!")
 
-    @commands.command(name='settraderday', pass_context=True)
-    @commands.has_role("members")
     async def set_trader_day(self, ctx):
         discord_id = ctx.message.author.id
         with session_scope() as session:
             database_accessor = DatabaseAccessor(session)
             linked_member_accounts = database_accessor.get_linked_accounts(discord_id)
-            await discord_client.say("Which account would you like to set it for?")
+            await discord_client.say("Which account would you like to setup?")
             selected = False
             for member in linked_member_accounts:
                 message = await discord_client.say(member.member_name)
@@ -883,7 +876,7 @@ class TraderShop:
                 if hit_check:
                     selected = True
                     trader_cycle_length = database_accessor.get_trader_cycle_length()
-                    await discord_client.say('What trader cycle day is it? (Enter a number 1-{})'.format(trader_cycle_length))
+                    await discord_client.say('What trader cycle day is this account on? (Enter a number 1-{})'.format(trader_cycle_length))
                     message = await discord_client.wait_for_message(author=ctx.message.author)
                     try:
                         day_in_cycle = int(message.content)
@@ -895,12 +888,12 @@ class TraderShop:
                     except TraderAccountNotConfigured:
                         await discord_client.say("This was not valid input.")
                         return
-                    await discord_client.say("Done!")
+                    await discord_client.say("Trader day set!")
                     break
             if not selected:
                 await discord_client.say("You didn't select an account to check")
 
-    @commands.command(name='gettraderday', pass_context=True)
+    @commands.command(name='checktraderday', pass_context=True)
     @commands.has_role("members")
     async def get_trader_day(self, ctx):
         discord_id = ctx.message.author.id
@@ -927,6 +920,26 @@ class TraderShop:
             if not selected:
                 await discord_client.say("You didn't select an account to check")
 
+    @commands.command(name='settradernotificationtime', pass_context=True)
+    @commands.has_role("members")
+    async def set_notification_time(self, ctx):
+        discord_id = ctx.message.author.id
+        dt = DateFetcherFormatter.get_utc_date_time()
+        hour = dt.hour
+
+        message = await discord_client.say("Is about now a good time for trader reminders? (Default is 12:30 AM UTC)")
+        await discord_client.add_reaction(message, config_strings.checkmark)
+        await discord_client.add_reaction(message, config_strings.xmark)
+        result = await discord_client.wait_for_reaction([config_strings.checkmark, config_strings.xmark], message=message, user=ctx.message.author)
+        hit_check = (result.reaction.emoji == config_strings.checkmark)
+        if hit_check:
+            with session_scope() as session:
+                database_accessor = DatabaseAccessor(session)
+                database_accessor.set_trader_time_for_discord_id(discord_id, hour)
+            await discord_client.say("Done.")
+        else:
+            await discord_client.say("Ok, nevermind.")
+
     @commands.command(name='setitemsfornotification', pass_context=True)
     @commands.has_role("developers")
     async def set_items_for_notification(self, ctx):
@@ -941,6 +954,14 @@ class TraderShop:
     @commands.has_role("developers")
     async def disable_notifications(self, ctx):
         pass
+
+    @commands.command(name='seetraderrotation', pass_context=True)
+    @commands.has_role("members")
+    async def see_trader_rotation(self, ctx):
+        with session_scope() as session:
+            database_accessor = DatabaseAccessor(session)
+            trader_cycle_url = database_accessor.get_trader_cycle_url()
+            await discord_client.say(trader_cycle_url)
 
 
 trader_shop_cog = TraderShop()
