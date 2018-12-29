@@ -46,7 +46,6 @@ Then, you need to save it.
 
 ```
 python3 fetched_data_processor.py
-python3 clashSaveData.py
 ```
 
 If you have filled out your config_bot.py, you can do:
