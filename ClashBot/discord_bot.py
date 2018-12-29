@@ -845,9 +845,8 @@ class TraderShop:
     async def setup_trader(self, ctx):
         pass
 
-
     @commands.command(name='settradernotificationtime', pass_context=True)
-    @commands.has_role("developers")
+    @commands.has_role("members")
     async def set_notification_time(self, ctx):
         discord_id = ctx.message.author.id
         dt = DateFetcherFormatter.get_utc_date_time()
@@ -861,14 +860,13 @@ class TraderShop:
         if hit_check:
             with session_scope() as session:
                 database_accessor = DatabaseAccessor(session)
-                database_accessor.set_gift_time_for_discord_id(discord_id, hour)
+                database_accessor.set_trader_time_for_discord_id(discord_id, hour)
             await discord_client.say("Done.")
         else:
             await discord_client.say("Ok, nevermind.")
 
-
     @commands.command(name='settraderday', pass_context=True)
-    @commands.has_role("developers")
+    @commands.has_role("members")
     async def set_trader_day(self, ctx):
         discord_id = ctx.message.author.id
         with session_scope() as session:
@@ -893,7 +891,7 @@ class TraderShop:
                         await discord_client.say("Failed to parse your input.")
                         return
                     try:
-                        database_accessor.set_gift_day_for_member(member, day_in_cycle)
+                        database_accessor.set_trader_day_for_member(member, day_in_cycle)
                     except TraderAccountNotConfigured:
                         await discord_client.say("This was not valid input.")
                         return
@@ -903,7 +901,7 @@ class TraderShop:
                 await discord_client.say("You didn't select an account to check")
 
     @commands.command(name='gettraderday', pass_context=True)
-    @commands.has_role("developers")
+    @commands.has_role("members")
     async def get_trader_day(self, ctx):
         discord_id = ctx.message.author.id
         with session_scope() as session:
@@ -920,7 +918,7 @@ class TraderShop:
                 if hit_check:
                     selected = True
                     try:
-                        result = database_accessor.get_gift_day_for_member(member)
+                        result = database_accessor.get_trader_day_for_member(member)
                     except TraderAccountNotConfigured:
                         await discord_client.say("This account hasn't been set up for the trader shop.")
                         return
@@ -1107,28 +1105,28 @@ def add_time_to_check():
     return timestampTest
 
 
-async def send_out_gift_reminders():
+async def send_out_trader_reminders():
     bot_channel = discord_client.get_channel(botChannelID)
     general_channel = discord_client.get_channel(MyConfigBot.generalChannelID)
 
     with session_scope() as session:
         database_accessor = DatabaseAccessor(session)
-        results = database_accessor.get_accounts_who_get_gift_reminders()
+        results = database_accessor.get_accounts_who_get_trader_reminders()
         print(results)
         for discord_id, accounts_dict in results.items():
             discord_id = str(discord_id)
             member = server.get_member(discord_id)
             for account_name, items in accounts_dict.items():
                 for item in items:
-                    await discord_client.send_message(bot_channel, 'Hey {}, {} gets a {} today!'.format(member.mention, account_name, item))
+                    await discord_client.send_message(general_channel, 'Hey {}, {} gets a {} today!'.format(member.mention, account_name, item))
                     await asyncio.sleep(1)
 
 
-async def gift_reminders_loop():
+async def trader_reminders_loop():
     while True:
         # send out current reminders
         # sleep if before 30, todo
-        await send_out_gift_reminders()
+        await send_out_trader_reminders()
 
         current_time = DateFetcherFormatter.get_utc_date_time()
         next_time = current_time + datetime.timedelta(hours=1)
@@ -1252,7 +1250,7 @@ async def discord_bot_data_loop():
     global server
     server = discord_client.get_server(MyConfigBot.server_id)
 
-    discord_client.loop.create_task(gift_reminders_loop())
+    discord_client.loop.create_task(trader_reminders_loop())
     discord_client.loop.create_task(war_reminders_loop())
     # discord_client.loop.create_task(createRules())
 

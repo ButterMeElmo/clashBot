@@ -391,29 +391,29 @@ class DatabaseAccessor:
     def get_trader_cycle_length(self):
         return self.session.query(TRADERDATA.value).filter(TRADERDATA.id==2).scalar()
 
-    def set_gift_time_for_discord_id(self, discord_id, hour):
+    def set_trader_time_for_discord_id(self, discord_id, hour):
         discord_instance = self.session.query(DISCORDACCOUNT).filter(DISCORDACCOUNT.discord_tag==discord_id).one()
         discord_instance.trader_shop_reminder_hour = hour
 
-    def set_gift_day_for_member(self, member_instance, current_gift_day):
+    def set_trader_day_for_member(self, member_instance, current_trader_day):
         """
 
         :param member_instance:
-        :param current_gift_day: Comes in 1-indexed
+        :param current_trader_day: Comes in 1-indexed
         :return:
         """
 
         current_cycle_no_offset, trader_cycle_length = self.get_trader_current_day_no_offset()
 
-        if current_gift_day <= 0 or current_gift_day > trader_cycle_length:
+        if current_trader_day <= 0 or current_trader_day > trader_cycle_length:
             raise TraderInvalidInput
 
-        if current_gift_day < current_cycle_no_offset:
-            current_gift_day += trader_cycle_length
-        calculated_offset = current_gift_day - current_cycle_no_offset
+        if current_trader_day < current_cycle_no_offset:
+            current_trader_day += trader_cycle_length
+        calculated_offset = current_trader_day - current_cycle_no_offset
         member_instance.trader_rotation_offset = calculated_offset
 
-    def get_gift_day_for_member(self, member_instance):
+    def get_trader_day_for_member(self, member_instance):
 
         current_cycle_no_offset, trader_cycle_length = self.get_trader_current_day_no_offset()
 
@@ -428,7 +428,7 @@ class DatabaseAccessor:
             calculated_day = calculated_day - trader_cycle_length
         return calculated_day
 
-    def get_accounts_who_get_gift_reminders(self):
+    def get_accounts_who_get_trader_reminders(self):
 
         # get accounts with notifications at this time
         dt = DateFetcherFormatter.get_utc_date_time()
@@ -436,13 +436,13 @@ class DatabaseAccessor:
         accounts_who_want_reminders = self.session.query(DISCORDACCOUNT).filter(DISCORDACCOUNT.trader_shop_reminder_hour == hour).all()
 
         # generate list of all items
-        current_gift_rotation = {}
+        current_trader_rotation = {}
         current_items = self.session.query(TRADERITEM).all()
         for item_instance in current_items:
             item_day_in_rotation = int(item_instance.day_in_rotation)
-            if item_day_in_rotation not in current_gift_rotation:
-                current_gift_rotation[item_day_in_rotation] = []
-            current_gift_rotation[item_day_in_rotation].append(item_instance)
+            if item_day_in_rotation not in current_trader_rotation:
+                current_trader_rotation[item_day_in_rotation] = []
+            current_trader_rotation[item_day_in_rotation].append(item_instance)
 
         # todo, add filtering in the case of enabling or disabling on a per clash account basis
 
@@ -461,8 +461,8 @@ class DatabaseAccessor:
                 clash_account_trader_day = current_cycle_no_offset + clash_account.trader_rotation_offset
                 if clash_account_trader_day > trader_cycle_length:
                     clash_account_trader_day = clash_account_trader_day - trader_cycle_length
-                if clash_account_trader_day in current_gift_rotation:
-                    for item in current_gift_rotation[clash_account_trader_day]:
+                if clash_account_trader_day in current_trader_rotation:
+                    for item in current_trader_rotation[clash_account_trader_day]:
                         if discord_account_instance.discord_tag not in results:
                             results[discord_account_instance.discord_tag] = {}
                         if clash_account.member_name not in results[discord_account_instance.discord_tag]:
@@ -1463,37 +1463,6 @@ def getMembersInWarWithoutDiscord():
         actualResults.append(result[0])
 
     return actualResults
-
-
-
-
-def setMemberFreeGiftDayAndTime(memberName, dayOfWeek, hourToRemindAt, discordID):
-    cursor, conn = getCursorAndConnection()
-    query = '''
-		UPDATE MEMBERS
-		SET
-			free_item_day_of_week = ?,
-			free_item_hour_to_remind = ?,
-			wants_gift_reminder = ?
-		WHERE
-			member_name = ?
-		AND
-			member_tag in (SELECT member_tag FROM DISCORD_CLASH_LINKS WHERE discord_tag = ?)
-		'''
-    print(memberName)
-    print(discordID)
-    result = config_strings.success
-    try:
-        cursor.execute(query, (dayOfWeek, hourToRemindAt,
-                               1, memberName, discordID))
-    except Exception as e:
-        print(e)
-        result = config_strings.failed
-    if cursor.rowcount != 1:
-        result = config_strings.failed
-    conn.commit()
-    conn.close()
-    return result
 
 
 def getDiscordIDForAccountName(accountName):
