@@ -753,10 +753,8 @@ class FetchedDataProcessor:
         for season_instance in season_instances[1:]:
             print('validating a season: {}'.format(season_instance.season_id))
 
-            season = season_instance
-
-            season_start_time = season.start_time
-            season_end_time = season.end_time
+            season_start_time = season_instance.start_time
+            season_end_time = season_instance.end_time
 
             start_time_date_time = datetime.datetime.utcfromtimestamp(season_start_time)
             start_time_date_time_aware = start_time_date_time.replace(tzinfo=pytz.utc)
