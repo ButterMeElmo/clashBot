@@ -697,7 +697,11 @@ class FetchedDataProcessor:
 
     # october 1 2017, random time
     def populate_seasons_in_db(self, initial_time=1506884421):
-        start_time = initial_time
+        if self.initial_run:
+            start_time = initial_time
+        else:
+            last_created_season = self.session.query(SEASON).order_by(SEASON.end_time.desc()).first()
+            start_time = last_created_season.end_time + 1
         stop_time = datetime.datetime.utcnow()
         aware_utc_dt = stop_time.replace(tzinfo=pytz.utc)
         aware_utc_dt = aware_utc_dt + datetime.timedelta(days=1)
@@ -711,7 +715,7 @@ class FetchedDataProcessor:
             end_time = self.get_next_season_time_stamp(start_time) - 1
 
             if int(start_time) not in all_seasons_start_times:
-                print('adding')
+                print("adding")
                 instance = SEASON()
                 instance.start_time = int(start_time)
                 instance.end_time = int(end_time)
@@ -732,13 +736,16 @@ class FetchedDataProcessor:
             print('full run')
             season_query = season_query.filter(SEASON.season_id > 1)
         else:
-            last_season_instance = self.session.query(SEASON) \
+            current_season_instance = self.session.query(SEASON) \
                 .filter(SEASON.start_time <= self.previous_processed_time) \
                 .filter(SEASON.end_time >= self.previous_processed_time).one_or_none()
+
+            last_season_instance = self.session.query(SEASON).filter(SEASON.end_time == current_season_instance.start_time-1).one()
+
             if last_season_instance is None:
                 raise Exception("Why are you asking for this time? No season matches it.")
 
-            season_query = season_query.filter(SEASON.season_id >= last_season_instance.season_id - 1)
+            season_query = season_query.filter(SEASON.end_time >= last_season_instance.end_time)
 
         season_instances = season_query.all()
 
@@ -746,9 +753,8 @@ class FetchedDataProcessor:
         for season_instance in season_instances[1:]:
             print('validating a season: {}'.format(season_instance.season_id))
 
-            season = self.session.query(SEASON).filter(SEASON.season_id == season_instance.season_id).one_or_none()
-            if season is None:
-                raise ValueError('This season does not have proper start and end times')
+            season = season_instance
+
             season_start_time = season.start_time
             season_end_time = season.end_time
 
@@ -810,6 +816,7 @@ class FetchedDataProcessor:
 
                     break
                 previous_timestamp = timestamp
+            prev_instance = season_instance
 
     def process_season_historical_data(self, clan_tag_to_scan=MyConfigBot.my_clan_tag):
 
