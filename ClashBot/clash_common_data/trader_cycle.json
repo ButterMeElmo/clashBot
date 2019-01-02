@@ -3,7 +3,7 @@
     "last_updated": 1545952083,
     "high_value_days": {
         "1": [{
-            "type": "builder potion",
+            "type": "clock tower potion",
             "cost": 0
         }],
         "6": [{
@@ -19,7 +19,7 @@
             "cost": 0
         }],
         "21": [{
-            "type": "builder potion",
+            "type": "clock tower potion",
             "cost": 0
         }],
         "23": [{
@@ -31,7 +31,7 @@
             "cost": 500
         }],
         "31": [{
-            "type": "builder potion",
+            "type": "clock tower potion",
             "cost": 0
         }],
         "33": [{
