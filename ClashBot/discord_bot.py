@@ -853,11 +853,13 @@ class TraderShop:
         await discord_client.add_reaction(message, config_strings.checkmark)
         await discord_client.add_reaction(message, config_strings.xmark)
         result = await discord_client.wait_for_reaction([config_strings.checkmark, config_strings.xmark], message=message, user=ctx.message.author, timeout=120)
-        hit_check = (result.reaction.emoji == config_strings.checkmark)
-        if hit_check:
-            await self.set_trader_day(ctx)
-            await discord_client.say("Be on the lookout for any reminders about free/high value items!")
-            return
+        # if result is none, the bot didn't get a reaction in time
+        if result is None:
+            hit_check = (result.reaction.emoji == config_strings.checkmark)
+            if hit_check:
+                await self.set_trader_day(ctx)
+                await discord_client.say("Be on the lookout for any reminders about free/high value items!")
+                return
         await discord_client.say("Exiting. Please feel free to restart!")
 
     async def set_trader_day(self, ctx):
