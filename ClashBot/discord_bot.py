@@ -1162,6 +1162,11 @@ async def send_out_war_reminders(next_war_timestamp_string):
     war_channel = discord_client.get_channel(MyConfigBot.warChannelID)
     bot_channel = discord_client.get_channel(MyConfigBot.testingChannelID)
 
+    # update data to be sure we aren't sending reminders to people who have already attacked, just recently
+    time_checking = add_time_to_check()
+    while last_updated_data_time < time_checking:
+        await asyncio.sleep(1)
+
     with session_scope() as session:
         database_accessor = DatabaseAccessor(session)
         try:
