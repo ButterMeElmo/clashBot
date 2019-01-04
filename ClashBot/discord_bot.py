@@ -1068,8 +1068,9 @@ async def update_roles():
                     await discord_client.remove_roles(server_member, *roles_to_remove)
             # if not in clan, remove roles
             else:
+                # @everyone is a role everyone has
                 if len(server_member.roles) > 1:
-                    await discord_client.remove_roles(server_member, member_role, war_role, troop_role, check_in_role)
+                    await discord_client.remove_roles(server_member, member_role, war_role, troop_role, check_in_role, th12_role, war_perms_role)
 
         print('done updating!')
 
