@@ -228,23 +228,23 @@ class AccountManagement:
                         result_string = self.process_role_request(discord_id, 0)
                     await discord_client.say(result_string)
 
-            general_channel = discord_client.get_channel(MyConfigBot.generalChannelID)
-            bot_channel = discord_client.get_channel(MyConfigBot.testingChannelID)
-            try:
-                await update_roles()
-                await discord_client.send_message(bot_channel, "Applied roles")
-            except:
-                await discord_client.send_message(bot_channel, "Failed to apply roles")
+        general_channel = discord_client.get_channel(MyConfigBot.generalChannelID)
+        bot_channel = discord_client.get_channel(MyConfigBot.testingChannelID)
+        try:
+            await update_roles()
+            await discord_client.send_message(bot_channel, "Applied roles")
+        except:
+            await discord_client.send_message(bot_channel, "Failed to apply roles")
 
-            introduction_string = 'Your account(s) are all set up!\n'
-            introduction_string += 'During war, you may use @troopdonators to request troops for war.\n'
-            rules_channel = server.get_channel(MyConfigBot.rulesChannelID)
-            introduction_string += 'Please see {} for the clan rules.\n'.format(rules_channel.mention)
-            war_channel = server.get_channel(MyConfigBot.warChannelID)
-            introduction_string += 'Finally, we have a {} channel for discussing war.\n'.format(war_channel.mention)
-            leader = server.get_member(MyConfigBot.leaderDiscordID)
-            introduction_string += 'If you have any questions, please ask @{}!'.format(leader.nick)
-            await discord_client.say(introduction_string)
+        introduction_string = 'Your account(s) are all set up!\n'
+        introduction_string += 'During war, you may use @troopdonators to request troops for war.\n'
+        rules_channel = server.get_channel(MyConfigBot.rulesChannelID)
+        introduction_string += 'Please see {} for the clan rules.\n'.format(rules_channel.mention)
+        war_channel = server.get_channel(MyConfigBot.warChannelID)
+        introduction_string += 'Finally, we have a {} channel for discussing war.\n'.format(war_channel.mention)
+        leader = server.get_member(MyConfigBot.leaderDiscordID)
+        introduction_string += 'If you have any questions, please ask @{}!'.format(leader.nick)
+        await discord_client.say(introduction_string)
 
     # @commands.command(name='linkmyaccountold', hidden=True, pass_context=True,  brief='Connect your discord to a clash account')
     # async def linkAccounts(self, ctx, *, member_name):
