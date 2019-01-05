@@ -19,16 +19,14 @@ ClashBot.egg-info/
 # vim .swp files
 *.swp
 
-ClashBot/data/*
-ClashBot/config_bot.json
 ClashBot/clashData.db
-ClashBot/config_bot.py
-ClashBot/discordBot.js
-ClashBot/clashWebServer.py
-ClashBot/manuallyInputtingDataConversion/*
-!ClashBot/manuallyInputtingDataConversion/1_clanGamesMain.json
 ClashBot/clashData.db-journal
-ClashBot/clash_common_data/discord_exported_data.json
+
+ClashBot/configs/*.json
+
+ClashBot/exported_data/discord_exported_data.json
+
+ClashBot/fetched_raw_data/*
 
 # files I am working on and don't want uploaded
 *.wip
@@ -42,3 +40,5 @@ ClashBot/clash_common_data/discord_exported_data.json
 
 # Used for moving files around :)
 rsync_command
+
+output/

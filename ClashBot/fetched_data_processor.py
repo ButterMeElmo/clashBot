@@ -17,8 +17,6 @@ from ClashBot.models import ACCOUNTNAME, CLAN, MEMBER, SCANNEDDATA, WAR, WARATTA
     CALCULATEDTROOPSSPELLSSIEGE, SEASONHISTORICALDATA, CLANGAMESSCORE, WARPARTICIPATION, DISCORDACCOUNT, \
     DISCORDCLASHLINK, LASTPROCESSED, TRADERDATA, TRADERITEM
 
-from ClashBot import MyConfigBot
-
 from sqlalchemy.sql.expression import func
 
 from sqlalchemy import create_engine
@@ -33,7 +31,6 @@ from ClashBot import session_scope
 printed_already = False
 
 count_to_get_to = 0
-
 
 class FetchedDataProcessorHelper:
 
@@ -56,10 +53,13 @@ class FetchedDataProcessor:
     def __init__(self, session):
 
         self.session = session
-        # super().__init__(session)
 
-        if hasattr(MyConfigBot, 'testing_data_dir'):
-            data_directory = MyConfigBot.testing_data_dir
+        with open("configs/app.json") as infile:
+            self.app_config = json.load(infile)
+            self.clan_tag_to_scan = self.app_config["my_clan_tag"]
+
+        if "testing_data_dir" in self.app_config:
+            data_directory = self.app_config["testing_data_dir"]
         else:
             data_directory = "data"
 
@@ -224,7 +224,9 @@ class FetchedDataProcessor:
                 end = time.time()
                 print(end - start)
 
-    def process_clan_war_league_entries(self, entries, clan_tag_to_scan=MyConfigBot.my_clan_tag):
+    def process_clan_war_league_entries(self, entries, clan_tag_to_scan=None):
+        if clan_tag_to_scan is None:
+            clan_tag_to_scan = self.clan_tag_to_scan
         # todo fix the data...
         for key, value in entries.items():
             if key != "timestamp":
@@ -540,7 +542,7 @@ class FetchedDataProcessor:
 
     def import_linked_accounts_to_db(self):
 
-        filename = 'clash_common_data/discord_exported_data.json'
+        filename = 'exported_data/discord_exported_data.json'
         if not os.path.exists(filename):
             print('No discord data to load')
             return
@@ -816,7 +818,10 @@ class FetchedDataProcessor:
                 previous_timestamp = timestamp
             prev_instance = season_instance
 
-    def process_season_historical_data(self, clan_tag_to_scan=MyConfigBot.my_clan_tag):
+    def process_season_historical_data(self, clan_tag_to_scan=None):
+
+        if clan_tag_to_scan is None:
+            clan_tag_to_scan = self.clan_tag_to_scan
 
         member_query = self.session.query(MEMBER)
         season_query = self.session.query(SEASON)
@@ -956,7 +961,11 @@ class FetchedDataProcessor:
                     result = clan_game.start_time - 1
         return result
 
-    def process_clan_games_data(self, clan_tag_to_scan=MyConfigBot.my_clan_tag):
+    def process_clan_games_data(self, clan_tag_to_scan=None):
+
+        if clan_tag_to_scan is None:
+            clan_tag_to_scan = self.clan_tag_to_scan
+
         # todo
         # automate clan games start and end time detection
         # bring in the borders of this to first scan before and after clan games started

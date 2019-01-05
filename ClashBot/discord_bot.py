@@ -7,10 +7,9 @@ import datetime
 import pytz
 from discord.ext import commands
 #import clashWebServer
-from ClashBot import FetchedDataProcessor, DatabaseAccessor, DateFetcherFormatter, MyConfigBot, SupercellDataFetcher, FetchedDataProcessorHelper, NoActiveClanWarLeagueWar, NoActiveClanWar, TraderAccountNotConfigured, TraderInvalidInput, TraderAccountNotConfigured
+from ClashBot import FetchedDataProcessor, DatabaseAccessor, DateFetcherFormatter, SupercellDataFetcher, FetchedDataProcessorHelper, NoActiveClanWarLeagueWar, NoActiveClanWar, TraderAccountNotConfigured, TraderInvalidInput, TraderAccountNotConfigured
 from my_help_formatter import MyHelpFormatter, _default_help_command
 # import clashAccessData
-# import MyConfigBot
 import config_strings
 import config_options
 # from MyHelpFormatter import , _default_help_command
@@ -19,8 +18,18 @@ import json
 
 from ClashBot import session_scope
 
+with open("configs/discord.json") as infile:
+    discord_config = json.load(infile)
+
 # make this come from config
-botChannelID = MyConfigBot.testingChannelID
+botChannelID = discord_config["testingChannelID"]
+generalChannelID = discord_config["generalChannelID"]
+rulesChannelID = discord_config["rulesChannelID"]
+testingChannelID = discord_config["testingChannelID"]
+warChannelID = discord_config["warChannelID"]
+leaderDiscordID = discord_config["leaderDiscordID"]
+server_id = discord_config["server_id"]
+token = discord_config["token"]
 
 discord_client = commands.Bot(command_prefix='!', formatter=MyHelpFormatter())
 discord_client.remove_command('help')
@@ -29,7 +38,7 @@ discord_client.command(**discord_client.help_attrs)(_default_help_command)
 server = None
 last_updated_data_time = 0
 
-leader_nickname = MyConfigBot.leader_nickname
+leader_nickname = discord_config["leader_nickname"]
 
 data_fetcher = SupercellDataFetcher()
 
@@ -47,8 +56,8 @@ async def on_member_join(member):
     """Says when a member joined."""
     msg = 'Hi {0.mention}! Please set up your account by typing: !start (including the exclamation point)'.format(
         member)
-    general_channel = discord_client.get_channel(MyConfigBot.generalChannelID)
-    # botChannel = discord_client.get_channel(MyConfigBot.testingChannelID)
+    general_channel = discord_client.get_channel(generalChannelID)
+    # botChannel = discord_client.get_channel(testingChannelID)
     await discord_client.send_message(general_channel, msg)
 
 
@@ -56,8 +65,8 @@ async def on_member_join(member):
 async def on_member_remove(member):
     """Says when a member leaves/was kicked."""
     msg = '{0.mention} has left the server'.format(member)
-    # generalChannel = discord_client.get_channel(MyConfigBot.generalChannelID)
-    bot_channel = discord_client.get_channel(MyConfigBot.testingChannelID)
+    # generalChannel = discord_client.get_channel(generalChannelID)
+    bot_channel = discord_client.get_channel(testingChannelID)
     await discord_client.send_message(bot_channel, msg)
 
 # @commandBot.command(name='test')
@@ -228,8 +237,8 @@ class AccountManagement:
                         result_string = self.process_role_request(discord_id, 0)
                     await discord_client.say(result_string)
 
-        general_channel = discord_client.get_channel(MyConfigBot.generalChannelID)
-        bot_channel = discord_client.get_channel(MyConfigBot.testingChannelID)
+        general_channel = discord_client.get_channel(generalChannelID)
+        bot_channel = discord_client.get_channel(testingChannelID)
         try:
             await update_roles()
             await discord_client.send_message(bot_channel, "Applied roles")
@@ -238,11 +247,11 @@ class AccountManagement:
 
         introduction_string = 'Your account(s) are all set up!\n'
         introduction_string += 'During war, you may use @troopdonators to request troops for war.\n'
-        rules_channel = server.get_channel(MyConfigBot.rulesChannelID)
+        rules_channel = server.get_channel(rulesChannelID)
         introduction_string += 'Please see {} for the clan rules.\n'.format(rules_channel.mention)
-        war_channel = server.get_channel(MyConfigBot.warChannelID)
+        war_channel = server.get_channel(warChannelID)
         introduction_string += 'Finally, we have a {} channel for discussing war.\n'.format(war_channel.mention)
-        leader = server.get_member(MyConfigBot.leaderDiscordID)
+        leader = server.get_member(leaderDiscordID)
         introduction_string += 'If you have any questions, please ask @{}!'.format(leader.nick)
         await discord_client.say(introduction_string)
 
@@ -313,7 +322,7 @@ class AccountManagement:
             result_string = self.process_role_request(discord_id, want_to_be_donator)
             await discord_client.send_message(ctx.message.channel, result_string)
 
-            bot_channel = discord_client.get_channel(MyConfigBot.testingChannelID)
+            bot_channel = discord_client.get_channel(testingChannelID)
             try:
                 await update_roles()
                 await discord_client.send_message(bot_channel, "Applied roles")
@@ -1131,7 +1140,7 @@ def add_time_to_check():
 
 async def send_out_trader_reminders():
     bot_channel = discord_client.get_channel(botChannelID)
-    general_channel = discord_client.get_channel(MyConfigBot.generalChannelID)
+    general_channel = discord_client.get_channel(generalChannelID)
 
     with session_scope() as session:
         database_accessor = DatabaseAccessor(session)
@@ -1162,8 +1171,8 @@ async def trader_reminders_loop():
 
 
 async def send_out_war_reminders(next_war_timestamp_string):
-    war_channel = discord_client.get_channel(MyConfigBot.warChannelID)
-    bot_channel = discord_client.get_channel(MyConfigBot.testingChannelID)
+    war_channel = discord_client.get_channel(warChannelID)
+    bot_channel = discord_client.get_channel(testingChannelID)
 
     # update data to be sure we aren't sending reminders to people who have already attacked, just recently
     time_checking = add_time_to_check()
@@ -1220,7 +1229,7 @@ async def war_reminders_loop():
             await send_out_war_reminders(next_war_timestamp_string)
 
 async def createRules():
-    rules_channel = discord_client.get_channel(MyConfigBot.rulesChannelID)
+    rules_channel = discord_client.get_channel(rulesChannelID)
     with open('clanRules.json') as rulesFiles:
         new_rules = json.load(rulesFiles)
         # Most of the time, we will be modifying wording, so we want to delete and re-enter the same number of rules.
@@ -1233,15 +1242,15 @@ async def createRules():
             await discord_client.send_message(rules_channel, embed=new_embed)
 
 async def notify_if_cwl_roster_needs_set():
-    war_channel = discord_client.get_channel(MyConfigBot.warChannelID)
-    testing_channel = discord_client.get_channel(MyConfigBot.testingChannelID)
+    war_channel = discord_client.get_channel(warChannelID)
+    testing_channel = discord_client.get_channel(testingChannelID)
     with session_scope() as session:
         database_accessor = DatabaseAccessor(session)
         try:
             cwl_roster_complete = database_accessor.is_today_cwl_roster_complete()
         except NoActiveClanWarLeagueWar:
             return
-        leader = server.get_member(MyConfigBot.leaderDiscordID)
+        leader = server.get_member(leaderDiscordID)
         if not cwl_roster_complete:
             await discord_client.send_message(testing_channel, 'Hey {}, the CWL roster is NOT complete, please set it and then save data again so I can apply roles!!'.format(leader.mention))
 
@@ -1271,7 +1280,7 @@ async def discord_bot_data_loop():
     bot_channel = discord_client.get_channel(botChannelID)
 
     global server
-    server = discord_client.get_server(MyConfigBot.server_id)
+    server = discord_client.get_server(server_id)
 
     discord_client.loop.create_task(trader_reminders_loop())
     discord_client.loop.create_task(war_reminders_loop())
@@ -1350,5 +1359,4 @@ async def discord_bot_data_loop():
 
 discord_client.loop.create_task(discord_bot_data_loop())
 
-discordToken = MyConfigBot.token
-discord_client.run(discordToken)
+discord_client.run(token)

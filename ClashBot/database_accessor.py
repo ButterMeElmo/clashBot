@@ -14,7 +14,7 @@ import dateutil
 import date_fetcher_formatter
 import config_strings
 
-from ClashBot import DateFetcherFormatter, MyConfigBot
+from ClashBot import DateFetcherFormatter
 from ClashBot.models import DISCORDCLASHLINK, MEMBER, WARATTACK, WAR, DISCORDACCOUNT, WARPARTICIPATION, TRADERDATA, TRADERITEM
 
 from sqlalchemy.sql.expression import func
@@ -49,7 +49,15 @@ class DatabaseAccessor:
 
         self.session = session
 
-    def get_discord_ids_of_members_who_are_th12(self, clan_tag=MyConfigBot.my_clan_tag):
+        with open("configs/app.json") as infile:
+            app_config = json.load(infile)
+            self.my_clan_tag = app_config["my_clan_tag"]
+
+    def get_discord_ids_of_members_who_are_th12(self, clan_tag=None):
+
+        if clan_tag is None:
+            clan_tag = self.my_clan_tag
+
         discord_clash_links = self.session.query(DISCORDCLASHLINK) \
                     .join(MEMBER) \
                     .filter(MEMBER.town_hall_level == 12) \
@@ -123,7 +131,11 @@ class DatabaseAccessor:
                 self.session.delete(war_participation_instance)
                 break
 
-    def get_members_in_clan_with_name(self, member_name, clan_tag=MyConfigBot.my_clan_tag):
+    def get_members_in_clan_with_name(self, member_name, clan_tag=None):
+
+        if clan_tag is None:
+            clan_tag = self.my_clan_tag
+
         return self.session.query(MEMBER) \
             .filter(MEMBER.clan_tag == clan_tag) \
             .filter(func.upper(MEMBER.member_name) == member_name).all()
@@ -157,7 +169,10 @@ class DatabaseAccessor:
             else:
                 return results
 
-    def get_members_in_war_with_attacks_remaining(self, clan_tag=MyConfigBot.my_clan_tag):
+    def get_members_in_war_with_attacks_remaining(self, clan_tag=None):
+
+        if clan_tag is None:
+            clan_tag = self.my_clan_tag
 
         current_time = DateFetcherFormatter.get_utc_timestamp()
         current_war = self.session.query(WAR) \
@@ -263,7 +278,10 @@ class DatabaseAccessor:
             return  False
         return True
 
-    def get_members_in_clan(self, clan_tag=MyConfigBot.my_clan_tag):
+    def get_members_in_clan(self, clan_tag=None):
+
+        if clan_tag is None:
+            clan_tag = self.my_clan_tag
 
         results = self.session.query(DISCORDACCOUNT) \
                                     .join(DISCORDCLASHLINK) \
@@ -328,8 +346,10 @@ class DatabaseAccessor:
             result_string += entry + '\n'
         return result_string
 
+    def get_all_members_without_discord(self, clan_tag=None):
 
-    def get_all_members_without_discord(self, clan_tag=MyConfigBot.my_clan_tag):
+        if clan_tag is None:
+            clan_tag = self.my_clan_tag
 
         members_in_clan = self.session.query(MEMBER) \
             .filter(MEMBER.clan_tag == clan_tag).all()
@@ -341,7 +361,11 @@ class DatabaseAccessor:
 
         return actual_results
 
-    def get_members_by_offensive_score(self, clan_tag=MyConfigBot.my_clan_tag):
+    def get_members_by_offensive_score(self, clan_tag=None):
+
+        if clan_tag is None:
+            clan_tag = self.my_clan_tag
+
         # implement this?
         all_members_in_clan = self.session.query(MEMBER).filter(MEMBER.clan_tag == clan_tag).all()
 
@@ -483,7 +507,11 @@ class DatabaseAccessor:
     def get_discord_account(self, discord_id):
         return self.session.query(DISCORDACCOUNT).filter(DISCORDACCOUNT.discord_tag == discord_id).one()
 
-    def get_linked_accounts(self, discord_id, clan_tag=MyConfigBot.my_clan_tag, currently_in_clan_only=False):
+    def get_linked_accounts(self, discord_id, clan_tag=None, currently_in_clan_only=False):
+
+        if clan_tag is None:
+            clan_tag = self.my_clan_tag
+
         query = self.session.query(MEMBER) \
             .join(DISCORDCLASHLINK) \
             .join(DISCORDACCOUNT) \

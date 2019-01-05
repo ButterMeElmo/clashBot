@@ -6,11 +6,14 @@ import time
 from subprocess import call
 
 from ClashBot import DateFetcherFormatter
-from ClashBot import ClashOfClansAPI, MyConfigBot
+from ClashBot import ClashOfClansAPI
 import os.path
 
-
 class SupercellDataFetcher:
+
+    def __init__(self):
+        with open("configs/supercell.json") as infile:
+            self.config = json.load(infile)
 
     date_fetcher_formatter = DateFetcherFormatter()
 
@@ -61,10 +64,10 @@ class SupercellDataFetcher:
 
     def fetch_data(self):
         print('Starting fetching data from clash api')
-        token = MyConfigBot.supercell_token_to_use
+        token = self.config.supercell_token_to_use
         coc_client = ClashOfClansAPI(token)
 
-        my_clan_tag = MyConfigBot.my_clan_tag[1:]
+        my_clan_tag = self.config.my_clan_tag[1:]
 
         clan_profile = coc_client.get_clan_profile(my_clan_tag)
 
@@ -135,11 +138,11 @@ class SupercellDataFetcher:
             if len(dataset) == 0:
                 print('This dataset has no data?')
                 return False
-            lastSnapshot = dataset[len(dataset) - 1]
-            if "timestamp" not in lastSnapshot:
+            last_snapshot = dataset[len(dataset) - 1]
+            if "timestamp" not in last_snapshot:
                 print('This data had no timestamp.')
                 return False
-            last_snapshot_time = lastSnapshot["timestamp"]
+            last_snapshot_time = last_snapshot["timestamp"]
             time_difference = current_time - last_snapshot_time
             one_minute = 60 * 1000
             print("last snapshot was at:  {}".format(last_snapshot_time))

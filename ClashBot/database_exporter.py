@@ -43,7 +43,7 @@ for discordNamePiece in discordNames:
 resultingData['DISCORD_PROPERTIES'] = discordPropertyList
 resultingData['DISCORD_NAMES'] = discordNameList
 
-with open('clash_common_data/discord_exported_data.json', 'w') as outfile:
+with open('exported_data/discord_exported_data.json', 'w') as outfile:
     json.dump(resultingData, outfile, indent=4)
 
 # query = '''

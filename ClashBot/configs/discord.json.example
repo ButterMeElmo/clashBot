@@ -1,0 +1,16 @@
+{
+  "token": "wepogjewaojwapojwaeopgjweagoihgiawehawgihw",
+  "app_id": "8312571983579",
+  "server_id": "42356759",
+  "generalChannelID": "172893572895712985729",
+  "warChannelID": "2381759719571298572395",
+  "modChannelID": "218375892157295",
+  "rulesChannelID": "12839512975151",
+  "testingChannelID": "1293875812572819",
+  "connectionMessagesChannelIDs": [
+    "172893572895712985729"
+  ],
+  "modName": "leaders",
+  "leaderDiscordID": "17488612747262981",
+  "leader_nickname": "Rich"
+}
