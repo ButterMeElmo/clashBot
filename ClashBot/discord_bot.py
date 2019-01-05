@@ -11,7 +11,6 @@ from ClashBot import FetchedDataProcessor, DatabaseAccessor, DateFetcherFormatte
 from my_help_formatter import MyHelpFormatter, _default_help_command
 # import clashAccessData
 import config_strings
-import config_options
 # from MyHelpFormatter import , _default_help_command
 import clash_convert_data_to_string
 import json
