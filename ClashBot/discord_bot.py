@@ -42,8 +42,6 @@ discord_client.command(**discord_client.help_attrs)(_default_help_command)
 server = None
 last_updated_data_time = 0
 
-data_fetcher = SupercellDataFetcher()
-
 
 class MemberDoesNotExistException(Exception):
     pass
@@ -120,6 +118,28 @@ async def update_roles_command(ctx):
 async def error(ctx):
     raise ValueError('Some error!')
     await discord_client.say('Threw error?')
+
+@discord_client.command(pass_context=True)
+@commands.has_role("developers")
+async def updatesupercellkey(ctx):
+
+    await discord_client.say('Paste your key here:')
+    message = await discord_client.wait_for_message(author=ctx.message.author)
+
+    try:
+        supercell_key = message.content.strip()
+
+        with open("configs/supercell.json") as supercell_config_file:
+            supercell_config = json.load(supercell_config_file)
+
+        supercell_config["supercell_token_to_use"] = supercell_key
+
+        with open("configs/supercell.json", "w") as outfile:
+            json.dump(supercell_config, outfile)
+
+        await discord_client.say('Done.')
+    except:
+        await discord_client.say('Failed.')
 
 
 class AccountManagement:
@@ -1320,6 +1340,7 @@ async def discord_bot_data_loop():
             data_check_override = False
 
             print("getting data")
+            data_fetcher = SupercellDataFetcher()
             try:
                 await discord_client.send_message(bot_channel, "Getting data")
                 try:
