@@ -14,10 +14,13 @@ class SupercellDataFetcher:
 
     def __init__(self):
         with open("configs/supercell.json") as infile:
-            config = json.load(infile)
-        self.token = config["supercell_token_to_use"]
-        self.my_clan_tag = config["my_clan_tag"]
-        self.data_directory = config["data_directory"]
+            supercell_config = json.load(infile)
+        self.token = supercell_config["supercell_token_to_use"]
+        self.my_clan_tag = supercell_config["my_clan_tag"]
+
+        with open("configs/app.json") as infile:
+            app_config = json.load(infile)
+        self.data_directory = app_config["data_directory"]
 
     date_fetcher_formatter = DateFetcherFormatter()
 
