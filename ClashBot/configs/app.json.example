@@ -1,5 +1,6 @@
 {
   "my_clan_tag": "#781H8H0",
   "my_tag": "#2G39JJ",
-  "data_directory": "fetched_raw_data"
+  "data_directory": "fetched_raw_data",
+  "min_th_required_to_donate_troops": 8
 }

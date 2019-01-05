@@ -30,6 +30,11 @@ warChannelID = discord_config["warChannelID"]
 leaderDiscordID = discord_config["leaderDiscordID"]
 server_id = discord_config["server_id"]
 token = discord_config["token"]
+leader_nickname = discord_config["leader_nickname"]
+
+with open("configs/app.json") as infile:
+    app_config = json.load(infile)
+min_th_required_to_donate_troops = app_config["min_th_required_to_donate_troops"]
 
 discord_client = commands.Bot(command_prefix='!', formatter=MyHelpFormatter())
 discord_client.remove_command('help')
@@ -37,8 +42,6 @@ discord_client.command(**discord_client.help_attrs)(_default_help_command)
 
 server = None
 last_updated_data_time = 0
-
-leader_nickname = discord_config["leader_nickname"]
 
 data_fetcher = SupercellDataFetcher()
 
@@ -220,7 +223,7 @@ class AccountManagement:
                     return
 
             # check if linked accounts contain one above TH 8
-            allowed_to_donate = database_accessor.has_linked_account_with_th_larger_than(discord_id, config_options.minTHRequiredToBeADonator-1)
+            allowed_to_donate = database_accessor.has_linked_account_with_th_larger_than(discord_id, min_th_required_to_donate_troops-1)
 
             if allowed_to_donate:
 
