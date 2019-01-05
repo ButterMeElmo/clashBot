@@ -15,7 +15,7 @@ import date_fetcher_formatter
 import config_strings
 
 from ClashBot import DateFetcherFormatter
-from ClashBot.models import DISCORDCLASHLINK, MEMBER, WARATTACK, WAR, DISCORDACCOUNT, WARPARTICIPATION, TRADERDATA, TRADERITEM
+from ClashBot.models import DISCORDCLASHLINK, MEMBER, WARATTACK, WAR, DISCORDACCOUNT, WARPARTICIPATION, TRADERDATA, TRADERITEM, SCANNEDDATA
 
 from sqlalchemy.sql.expression import func
 
@@ -521,6 +521,75 @@ class DatabaseAccessor:
         account_list = query.all()
         return account_list
 
+    def get_donations_for_x_days(self, num_days, clan_tag=None):
+        if clan_tag is None:
+            clan_tag = self.my_clan_tag
+
+        members_in_clan = self.session.query(MEMBER).filter(MEMBER.clan_tag == clan_tag).all()
+        results = {}
+        timestamp_to_get_donations_since = (DateFetcherFormatter.get_utc_date_time() - datetime.timedelta(days=num_days)).timestamp()
+        # last_week_timestamp = 0
+        max_y = 0
+        max_diff = 0
+        min_x = DateFetcherFormatter.get_utc_timestamp()
+        max_x = 0
+        for member in members_in_clan:
+            data = self.get_donations_since_time_for_member(member, timestamp_to_get_donations_since)
+
+            # too small sample size
+            if len(data) < 10:
+                print("skipping")
+                continue
+
+            results[member.member_name] = data
+
+            for datapoint in data:
+                if datapoint[1] > max_y:
+                    max_y = datapoint[1]
+
+            if data[0][0] < min_x:
+                min_x = data[0][0]
+            if data[0][0] > max_x:
+                max_x = data[0][0]
+        return {
+            "results": results,
+            "starting_timestamp": timestamp_to_get_donations_since,
+            "min_x": min_x,
+            "max_x": max_x,
+            "min_y": 0,
+            "max_y": max_y
+        }
+
+    def get_donations_since_time_for_member(self, member_instance, timestamp):
+
+        results = self.session.query(SCANNEDDATA) \
+            .join(MEMBER) \
+            .filter(MEMBER.member_tag == member_instance.member_tag) \
+            .filter(SCANNEDDATA.timestamp > timestamp) \
+            .all()
+
+        # culmulative
+        # initial_datapoint = results[0].troops_donated_achievement
+        # results = [(x.timestamp, (x.troops_donated_achievement - initial_datapoint)) for x in results]
+        # return results
+
+        # diff
+        new_results = []
+        prev_value = None
+        prev_time = None
+        for entry in results:
+            if prev_value is None:
+                prev_value = entry.troops_donated_achievement
+                prev_time = entry.timestamp
+            elif entry.timestamp - prev_time > (6 * 60 * 60):
+                # if data spans more than 6 hours, skip it
+                prev_value = entry.troops_donated_achievement
+                prev_time = entry.timestamp
+            else:
+                val = entry.troops_donated_achievement - prev_value
+                new_results.append((entry.timestamp, val))
+                prev_value = entry.troops_donated_achievement
+        return new_results
 
 def getCursorAndConnection():
     conn = sqlite3.connect(db_file)
@@ -1639,9 +1708,14 @@ def getMembersWithPoorWarPerformance():
         print('')
     conn.close()
 
-if __name__ == "__main__":
-    #	result = getMembersFromLastWar()
-    #result = getMembersWithScoreUnderThreshold(300)
-    #print(result)
-    # getMembersWithPoorWarPerformance()
-    print("I'm running but have no tasks")
+
+def init():
+    if __name__ == "__main__":
+        #	result = getMembersFromLastWar()
+        #result = getMembersWithScoreUnderThreshold(300)
+        #print(result)
+        # getMembersWithPoorWarPerformance()
+        # print("I'm running but have no tasks")
+        pass
+
+init()
