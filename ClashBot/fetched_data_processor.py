@@ -587,6 +587,26 @@ class FetchedDataProcessor:
             discord_clash_link_instance.discord_account = discord_account_instances[discord_tag]
             self.session.add(discord_clash_link_instance)
 
+    def import_member_data_to_db(self):
+
+        filename = 'exported_data/member_data.json'
+        if not os.path.exists(filename):
+            print('No member data to load')
+            return
+
+        member_data = json.load(open(filename))
+        for member_data_instance in member_data:
+            member_tag = member_data_instance["member_tag"]
+            trader_rotation_offset = member_data_instance["trader_rotation_offset"]
+
+            member_instance = self.session.query(MEMBER).filter(MEMBER.member_tag == member_tag).all()
+            if member_instance is None:
+                member_instance = MEMBER()
+                member_instance.member_tag = member_tag
+                self.session.add(member_instance)
+
+            member_instance.trader_rotation_offset = trader_rotation_offset
+
     def import_trader_data_to_db(self):
 
         # read in the trader data json
@@ -1067,8 +1087,8 @@ class FetchedDataProcessor:
             print('importing linked accounts')
             self.import_linked_accounts_to_db()
 
-            print('importing trader player data')
-            # self.import_trader_data_to_db()
+            print('importing player data')
+            self.import_member_data_to_db()
 
         print('importing trader shop data')
         self.import_trader_data_to_db()
