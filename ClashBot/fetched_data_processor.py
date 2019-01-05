@@ -57,17 +57,13 @@ class FetchedDataProcessor:
         with open("configs/app.json") as infile:
             self.app_config = json.load(infile)
             self.clan_tag_to_scan = self.app_config["my_clan_tag"]
+            self.data_directory = self.app_config["data_directory"]
 
-        if "testing_data_dir" in self.app_config:
-            data_directory = self.app_config["testing_data_dir"]
-        else:
-            data_directory = "data"
 
-        if not os.path.exists(data_directory):
+        if not os.path.exists(self.data_directory):
             print('No data to load')
             raise Exception('Data directory does not exist!!')
 
-        self.data_directory = data_directory
         # todo should always be false unless we detect there is no time stamp in the db or the db doesn't exist?
 
         self.previous_processed_time = self.session.query(LASTPROCESSED.time).filter(LASTPROCESSED.id == 1).scalar()

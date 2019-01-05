@@ -9,11 +9,15 @@ from ClashBot import DateFetcherFormatter
 from ClashBot import ClashOfClansAPI
 import os.path
 
+
 class SupercellDataFetcher:
 
     def __init__(self):
         with open("configs/supercell.json") as infile:
-            self.config = json.load(infile)
+            config = json.load(infile)
+        self.token = config["supercell_token_to_use"]
+        self.my_clan_tag = config["my_clan_tag"]
+        self.data_directory = config["data_directory"]
 
     date_fetcher_formatter = DateFetcherFormatter()
 
@@ -27,13 +31,13 @@ class SupercellDataFetcher:
 
         while counter_aware_utc_dt <= end_of_today:
             results.append(self.get_file_name(directory_for_data, starting_file_name, extension, counter_aware_utc_dt))
-            counter_aware_utc_dt = counter_aware_utc_dt.replace(hour= 12)
+            counter_aware_utc_dt = counter_aware_utc_dt.replace(hour=12)
             counter_aware_utc_dt = counter_aware_utc_dt + datetime.timedelta(days=1)
-            counter_aware_utc_dt = counter_aware_utc_dt.replace(hour= 12)
+            counter_aware_utc_dt = counter_aware_utc_dt.replace(hour=12)
 
         return results
 
-    def get_file_name(self, directory_for_data, starting_file_name, extension, date = None):
+    def get_file_name(self, directory_for_data, starting_file_name, extension, date=None):
         directory_for_data = str(directory_for_data)
         if len(directory_for_data) > 0 and directory_for_data[-1] != '/' and directory_for_data[-1] != '\\':
             directory_for_data += "/"
@@ -46,7 +50,9 @@ class SupercellDataFetcher:
         result = directory_for_data + starting_file_name + date_string + extension
         return result
 
-    def save_data_files(self, file_name, data_to_save, output_dir='data'):
+    def save_data_files(self, file_name, data_to_save, output_dir=None):
+        if output_dir is None:
+            output_dir = self.data_directory
         if output_dir[-1] != '/':
             output_dir += '/'
         extension = '.json'
@@ -64,10 +70,9 @@ class SupercellDataFetcher:
 
     def fetch_data(self):
         print('Starting fetching data from clash api')
-        token = self.config.supercell_token_to_use
-        coc_client = ClashOfClansAPI(token)
+        coc_client = ClashOfClansAPI(self.token)
 
-        my_clan_tag = self.config.my_clan_tag[1:]
+        my_clan_tag = self.my_clan_tag[1:]
 
         clan_profile = coc_client.get_clan_profile(my_clan_tag)
 
@@ -106,23 +111,26 @@ class SupercellDataFetcher:
     def get_data_from_server(self):
         self.fetch_data()
 
-    def validate_data(self, directoryForData='data'):
+    def validate_data(self, directory_for_data=None):
         """
         Makes sure the data pull was successful.
         """
+        if directory_for_data is None:
+            directory_for_data = self.data_directory
+
         datasets = []
 
         try:
-            with open(self.get_file_name(directoryForData, "warDetailsLog", ".json"), "r") as file:
+            with open(self.get_file_name(directory_for_data, "warDetailsLog", ".json"), "r") as file:
                 war_details_snapshot = json.load(file)
                 datasets.append(war_details_snapshot)
-            with open(self.get_file_name(directoryForData, "clanLog", ".json"), "r") as file:
+            with open(self.get_file_name(directory_for_data, "clanLog", ".json"), "r") as file:
                 clan_profile_snapshot = json.load(file)
                 datasets.append(clan_profile_snapshot)
-            with open(self.get_file_name(directoryForData, "warLog", ".json"), "r") as file:
+            with open(self.get_file_name(directory_for_data, "warLog", ".json"), "r") as file:
                 war_log_snapshot = json.load(file)
                 datasets.append(war_log_snapshot)
-            with open(self.get_file_name(directoryForData, "clanPlayerAchievements", ".json"), "r") as file:
+            with open(self.get_file_name(directory_for_data, "clanPlayerAchievements", ".json"), "r") as file:
                 player_achievements_snapshot = json.load(file)
                 datasets.append(player_achievements_snapshot)
         except FileNotFoundError as e:
