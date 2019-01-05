@@ -1158,10 +1158,16 @@ async def send_out_trader_reminders():
 
 
 async def trader_reminders_loop():
-    while True:
-        # send out current reminders
-        # sleep if before 30, todo
+
+    # if the bot comes on before the half hour, send out these reminders, then start the loop
+    current_time = DateFetcherFormatter.get_utc_date_time()
+    next_time = current_time.replace(minute=30, second=0)
+    if next_time > current_time:
+        time_to_sleep = next_time - current_time
+        await asyncio.sleep(time_to_sleep.total_seconds())
         await send_out_trader_reminders()
+
+    while True:
 
         current_time = DateFetcherFormatter.get_utc_date_time()
         next_time = current_time + datetime.timedelta(hours=1)
@@ -1170,6 +1176,9 @@ async def trader_reminders_loop():
 
         # sleep for an hour
         await asyncio.sleep(time_to_sleep.total_seconds())
+
+        # send out current reminders
+        await send_out_trader_reminders()
 
 
 async def send_out_war_reminders(next_war_timestamp_string):
