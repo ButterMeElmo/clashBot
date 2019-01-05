@@ -554,12 +554,12 @@ class FetchedDataProcessor:
         for discord_account in discord_properties:
             discord_account_instance = DISCORDACCOUNT()
             self.session.add(discord_account_instance)
-            discord_tag = discord_account['discordID']
+            discord_tag = discord_account['discord_id']
             discord_account_instance.discord_tag = discord_tag
-            discord_account_instance.is_troop_donator = discord_account['isDonator']
-            discord_account_instance.has_permission_to_set_war_status = discord_account['hasWarPerms']
-            discord_account_instance.time_last_checked_in = discord_account['lastCheckedTime']
-            discord_account_instance.trader_shop_reminder_hour = discord_account['traderReminderHour']
+            discord_account_instance.is_troop_donator = discord_account['is_donator']
+            discord_account_instance.has_permission_to_set_war_status = discord_account['has_war_permissions']
+            discord_account_instance.time_last_checked_in = discord_account['time_last_checked_in']
+            discord_account_instance.trader_shop_reminder_hour = discord_account['trader_reminder_hour']
             discord_account_instances[discord_tag] = discord_account_instance
 
         # self.session.flush()
@@ -583,7 +583,7 @@ class FetchedDataProcessor:
                 dummy.member_tag = clash_tag_looking_for
                 discord_clash_link_instance.clash_account = member
 
-            discord_tag = discord_name['discordID']
+            discord_tag = discord_name['discord_id']
             discord_clash_link_instance.discord_account = discord_account_instances[discord_tag]
             self.session.add(discord_clash_link_instance)
 

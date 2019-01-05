@@ -24,7 +24,7 @@ ClashBot/clashData.db-journal
 
 ClashBot/configs/*.json
 
-ClashBot/exported_data/discord_exported_data.json
+ClashBot/exported_data/*
 
 ClashBot/fetched_raw_data/*
 
