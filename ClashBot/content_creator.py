@@ -1,5 +1,6 @@
 import json
 import matplotlib.pyplot as plt
+import os
 from pathlib import Path
 import urllib
 
@@ -35,7 +36,9 @@ class ContentCreator:
                 plt.title(member_name)
                 plt.ylim(top=donation_data["max_y"], bottom=0)
                 plt.xlim(right=donation_data["max_x"], left=donation_data["min_x"])
-                output_dir = "output/"
+                output_dir = "output"
+                if not os.path.exists(output_dir):
+                    print("Output directory does not exist")
                 image_location = "{}/{}.{}".format(output_dir, member_name, self.image_extension)
                 plt.savefig(image_location)
                 plt.close()
@@ -68,7 +71,7 @@ def init():
     if __name__ == "__main__":
         x = ContentCreator()
         member_names = x.create_donation_graphs()
-        x.create_donation_webpage(member_names, False)
+        x.create_donation_webpage(member_names, True)
 
 
 init()

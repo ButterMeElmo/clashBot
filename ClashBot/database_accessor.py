@@ -536,8 +536,7 @@ class DatabaseAccessor:
         for member in members_in_clan:
             data = self.get_donations_since_time_for_member(member, timestamp_to_get_donations_since)
 
-            # too small sample size
-            if len(data) < 10:
+            if len(data) == 0:
                 print("skipping")
                 continue
 
