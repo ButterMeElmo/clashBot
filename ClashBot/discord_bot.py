@@ -17,6 +17,8 @@ import json
 
 from ClashBot import session_scope
 
+import traceback
+
 with open("configs/discord.json") as infile:
     discord_config = json.load(infile)
 
@@ -1387,7 +1389,14 @@ async def discord_bot_data_loop():
                 await discord_client.send_message(bot_channel, "Data was not retrieved")
 
     except Exception as err:
-        print("Error: " + str(err))
+        print("Error: " + str(traceback.format_exc()))
+        try:
+            leader = server.get_member(leaderDiscordID)
+            await discord_client.send_message(bot_channel, "Hey {}, an error occurred in ClashBot".format(leader.mention))
+            await discord_client.send_message(bot_channel, str(traceback.format_exc()))
+        except:
+            print("Unable to send to discord.")
+
 
 discord_client.loop.create_task(discord_bot_data_loop())
 
