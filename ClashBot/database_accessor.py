@@ -191,10 +191,15 @@ class DatabaseAccessor:
                 member = war_participation.member
 
                 attacks_remaining = 0
-                if war_participation.attack1.stars is None:
-                    attacks_remaining = 2
-                elif war_participation.attack2.stars is None:
-                    attacks_remaining = 1
+                # is standard war
+                if war_participation.is_clan_war_league_war == 0:
+                    if war_participation.attack1.stars is None:
+                        attacks_remaining = 2
+                    elif war_participation.attack2.stars is None:
+                        attacks_remaining = 1
+                else:
+                    if war_participation.attack1.stars is None:
+                        attacks_remaining = 1
 
                 if attacks_remaining != 0:
                     these_results = {
