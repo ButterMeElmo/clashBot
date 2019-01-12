@@ -155,14 +155,12 @@ class DatabaseAccessor:
             war_end_time = war_end_time
             hours_remaining_reminder = [6, 3, 1]
             results = []
-            for hourReminder in hours_remaining_reminder:
-                this_timestamp = war_end_time - (hourReminder * 3600)
+            for hour_reminder in hours_remaining_reminder:
+                this_timestamp = war_end_time - (hour_reminder * 3600)
                 if this_timestamp > current_timestamp:
-                    time_remaining_string = '{} hours remaining in war!'.format(
-                        hourReminder)
-                    if hourReminder == 1:
-                        time_remaining_string = '{} hour remaining in war!'.format(
-                            hourReminder)
+                    time_remaining_string = '{} hours remaining in war!'.format(hour_reminder)
+                    if hour_reminder == 1:
+                        time_remaining_string = '{} hour remaining in war!'.format(hour_reminder)
                     results.append((this_timestamp, time_remaining_string))
             if len(results) == 0:
                 return None
