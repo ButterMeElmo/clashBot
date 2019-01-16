@@ -47,7 +47,7 @@ class ContentCreator:
 
         return member_names
 
-    def create_donation_webpage(self, member_names, create_for_s3):
+    def create_donation_webpage(self, member_names, create_for_s3=False):
         html_code = """<body>"""
         for member_name in member_names:
             print(member_name)
@@ -71,7 +71,7 @@ def init():
     if __name__ == "__main__":
         x = ContentCreator()
         member_names = x.create_donation_graphs()
-        x.create_donation_webpage(member_names, True)
+        x.create_donation_webpage(member_names, create_for_s3=True)
 
 
 init()
