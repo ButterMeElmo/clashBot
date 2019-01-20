@@ -873,6 +873,12 @@ class ClanManagement:
 
 
 class TraderShop:
+
+    @commands.command(name='sendtradernotifications', pass_context=True)
+    @commands.has_role("developers")
+    async def send_trader_notifications_command(self, ctx):
+        await send_out_trader_reminders()
+
     @commands.command(name='setuptrader', pass_context=True)
     @commands.has_role("members")
     async def setup_trader(self, ctx):
@@ -1166,9 +1172,11 @@ async def send_out_trader_reminders():
     bot_channel = discord_client.get_channel(botChannelID)
     general_channel = discord_client.get_channel(generalChannelID)
 
+    await discord_client.send_message(bot_channel, "Sending trader notifications")
+
     with session_scope() as session:
         database_accessor = DatabaseAccessor(session)
-        results = database_accessor.get_accounts_who_get_trader_reminders()
+        results = database_accessor.get_accounts_who_get_trader_reminders(now_only=True)
         print(results)
         for discord_id, accounts_dict in results.items():
             discord_id = str(discord_id)
@@ -1176,6 +1184,16 @@ async def send_out_trader_reminders():
             for account_name, items in accounts_dict.items():
                 for item in items:
                     await discord_client.send_message(general_channel, 'Hey {}, {} gets a {} today!'.format(member.mention, account_name, item))
+                    await asyncio.sleep(1)
+
+        results = database_accessor.get_accounts_who_get_trader_reminders(now_only=False)
+        print(results)
+        for discord_id, accounts_dict in results.items():
+            discord_id = str(discord_id)
+            member = server.get_member(discord_id)
+            for account_name, items in accounts_dict.items():
+                for item in items:
+                    await discord_client.send_message(bot_channel, 'Hey {}, {} gets a {} today!'.format(member.mention, account_name, item))
                     await asyncio.sleep(1)
 
 
@@ -1186,15 +1204,22 @@ async def trader_reminders_loop():
     next_time = current_time.replace(minute=30, second=0)
     if next_time > current_time:
         time_to_sleep = next_time - current_time
+        print("1 sleeping for {}".format(time_to_sleep.total_seconds()))
         await asyncio.sleep(time_to_sleep.total_seconds())
         await send_out_trader_reminders()
 
     while True:
 
         current_time = DateFetcherFormatter.get_utc_date_time()
+        print("2 current_time: {}".format(current_time))
         next_time = current_time + datetime.timedelta(hours=1)
+        print("2 next_time a: {}".format(next_time))
+
         next_time = next_time.replace(minute=30, second=0)
+        print("2 next_time b: {}".format(next_time))
+
         time_to_sleep = next_time - current_time
+        print("2 time_to_sleep: {}".format(time_to_sleep.total_seconds()))
 
         # sleep for an hour
         await asyncio.sleep(time_to_sleep.total_seconds())

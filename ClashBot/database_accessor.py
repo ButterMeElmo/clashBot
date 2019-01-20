@@ -413,6 +413,8 @@ class DatabaseAccessor:
         # get the current trader day in the cycle, and make it 1 indexed
         current_cycle_no_offset = (current_cycle_no_offset_timedelta.days % trader_cycle_length) + 1
 
+        print(current_cycle_no_offset)
+        print(trader_cycle_length)
         return current_cycle_no_offset, trader_cycle_length
 
     def get_trader_cycle_length(self):
@@ -455,12 +457,18 @@ class DatabaseAccessor:
             calculated_day = calculated_day - trader_cycle_length
         return calculated_day
 
-    def get_accounts_who_get_trader_reminders(self):
+    def get_accounts_who_get_trader_reminders(self, now_only=True):
+
+        print("get_accounts_who_get_trader_reminders running")
 
         # get accounts with notifications at this time
         dt = DateFetcherFormatter.get_utc_date_time()
         hour = dt.hour
-        accounts_who_want_reminders = self.session.query(DISCORDACCOUNT).filter(DISCORDACCOUNT.trader_shop_reminder_hour == hour).all()
+        print("current_hour: {}".format(hour))
+        if now_only:
+            accounts_who_want_reminders = self.session.query(DISCORDACCOUNT).filter(DISCORDACCOUNT.trader_shop_reminder_hour == hour).all()
+        else:
+            accounts_who_want_reminders = self.session.query(DISCORDACCOUNT).all()
 
         # generate list of all items
         current_trader_rotation = {}
@@ -488,6 +496,9 @@ class DatabaseAccessor:
                 clash_account_trader_day = current_cycle_no_offset + clash_account.trader_rotation_offset
                 if clash_account_trader_day > trader_cycle_length:
                     clash_account_trader_day = clash_account_trader_day - trader_cycle_length
+
+                print("{} is on day {}".format(clash_account.member_name, clash_account_trader_day))
+
                 if clash_account_trader_day in current_trader_rotation:
                     for item in current_trader_rotation[clash_account_trader_day]:
                         if discord_account_instance.discord_tag not in results:
