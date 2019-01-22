@@ -56,8 +56,7 @@ class MemberNotSelectedException(Exception):
 @discord_client.event
 async def on_member_join(member):
     """Says when a member joined."""
-    msg = 'Hi {0.mention}! Please set up your account by typing: !start (including the exclamation point)'.format(
-        member)
+    msg = 'Hi {0.mention}! Please set up your account by typing: !start (including the exclamation point)'.format(member)
     general_channel = discord_client.get_channel(generalChannelID)
     # botChannel = discord_client.get_channel(testingChannelID)
     await discord_client.send_message(general_channel, msg)
@@ -1183,7 +1182,10 @@ async def send_out_trader_reminders():
             member = server.get_member(discord_id)
             for account_name, items in accounts_dict.items():
                 for item in items:
-                    await discord_client.send_message(general_channel, 'Hey {}, {} gets a {} today!'.format(member.mention, account_name, item))
+                    if member is None:
+                        await discord_client.send_message(bot_channel, '{} would have gotten something, but seems to have left the server.'.format(account_name))
+                    else:
+                        await discord_client.send_message(general_channel, 'Hey {}, {} gets a {} today!'.format(member.mention, account_name, item))
                     await asyncio.sleep(1)
 
         results = database_accessor.get_accounts_who_get_trader_reminders(now_only=False)
@@ -1193,7 +1195,10 @@ async def send_out_trader_reminders():
             member = server.get_member(discord_id)
             for account_name, items in accounts_dict.items():
                 for item in items:
-                    await discord_client.send_message(bot_channel, 'Hey {}, {} gets a {} today!'.format(member.mention, account_name, item))
+                    if member is None:
+                        await discord_client.send_message(bot_channel, '{} would have gotten something, but seems to have left the server.'.format(account_name))
+                    else:
+                        await discord_client.send_message(bot_channel, 'Hey {}, {} gets a {} today!'.format(member.mention, account_name, item))
                     await asyncio.sleep(1)
 
 
@@ -1268,7 +1273,10 @@ async def send_out_war_reminders(next_war_timestamp_string):
             current_account += 1
         discord_id = str(discord_id)
         member = server.get_member(discord_id)
-        await discord_client.send_message(war_channel, 'Hey {}, make sure to use{}! {}'.format(member.mention, account_names_string, next_war_timestamp_string))
+        if member is None:
+            await discord_client.send_message(bot_channel, 'Hey someone is a bad sport and left during war. They had attacks remaining: {}'.format(account_names_string))
+        else:
+            await discord_client.send_message(war_channel, 'Hey {}, make sure to use{}! {}'.format(member.mention, account_names_string, next_war_timestamp_string))
         await asyncio.sleep(1)
 
 async def war_reminders_loop():
