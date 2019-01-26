@@ -14,7 +14,7 @@ import dateutil
 import date_fetcher_formatter
 import config_strings
 
-from ClashBot import DateFetcherFormatter
+from ClashBot import DateFetcherFormatter, session_scope
 from ClashBot.models import DISCORDCLASHLINK, MEMBER, WARATTACK, WAR, DISCORDACCOUNT, WARPARTICIPATION, TRADERDATA, TRADERITEM, SCANNEDDATA
 
 from sqlalchemy.sql.expression import func
@@ -604,6 +604,83 @@ class DatabaseAccessor:
                 prev_value = entry.troops_donated_achievement
         return new_results
 
+    def get_all_donated_or_received_in_time_frame(self, time_created, time_finished, clan_tag=None):
+        if clan_tag is None:
+            clan_tag = self.my_clan_tag
+
+        result_dict = {
+            'left_since_created': [],
+            'standard': [],
+            'joined_since_created': [],
+            'debug': [time_created, time_finished]
+        }
+
+        members_in_clan = self.session.query(MEMBER).filter(MEMBER.clan_tag == clan_tag).all()
+        for member in members_in_clan:
+            member_joined_after_request_created = False
+            member_left_after_request_created = False
+
+            donations_before = self.session.query(SCANNEDDATA) \
+                .filter(SCANNEDDATA.member_tag == member.member_tag) \
+                .filter(SCANNEDDATA.timestamp <= time_created) \
+                .order_by(SCANNEDDATA.timestamp.desc()) \
+                .first()
+
+            if donations_before is None:
+                # this is when the member just joined
+                member_joined_after_request_created = True
+
+            donations_after = self.session.query(SCANNEDDATA) \
+                .filter(SCANNEDDATA.member_tag == member.member_tag) \
+                .filter(SCANNEDDATA.timestamp >= time_finished) \
+                .order_by(SCANNEDDATA.timestamp.asc()) \
+                .first()
+
+            if donations_after is None:
+                # the member just left
+                member_left_after_request_created = True
+
+            if member_joined_after_request_created and member_left_after_request_created:
+                print('whats happening')
+                result_dict['error'] = 'error 3'
+                return result_dict
+            elif member_joined_after_request_created:
+                entry = {
+                    'tag':  member.member_tag,
+                    'name':  member.member_name,
+                    'donated':  donations_after.troops_donated_monthly,
+                    'received':  donations_after.troops_received_monthly
+                }
+                result_dict['joined_since_created'].append(entry)
+            elif member_left_after_request_created:
+                entry = {
+                    'tag':  member.member_tag,
+                    'name':  member.member_name,
+                    'donated':  '?',
+                    'received':  '?'
+                }
+                result_dict['left_since_created'].append(entry)
+            else:
+                donated_before_num = donations_before.troops_donated_monthly
+                donated_after_num = donations_after.troops_donated_monthly
+                donated = donated_after_num - donated_before_num
+
+                received_before_num = donations_before.troops_received_monthly
+                received_after_num = donations_after.troops_received_monthly
+                received = received_after_num - received_before_num
+
+                if donated != 0 or received != 0:
+                    entry = {
+                        'tag':  member.member_tag,
+                        'name':  member.member_name,
+                        'donated':  donated,
+                        'received':  received
+                    }
+                    result_dict['standard'].append(entry)
+
+        return result_dict
+
+
 def getCursorAndConnection():
     conn = sqlite3.connect(db_file)
     cursor = conn.cursor()
@@ -1126,108 +1203,6 @@ def getIneligibleForClanGames(thLevelRequired=6):
     return resultsString
 
 
-def getAllDonatedOrReceivedInTimeFrame(time_created, time_finished):
-    resultDict = {}
-    resultDict['left_since_created'] = []
-    resultDict['standard'] = []
-    resultDict['joined_since_created'] = []
-    resultDict['debug'] = [time_created, time_finished]
-    time_created = time_created
-    time_finished = time_finished
-    cursor, conn = getCursorAndConnection()
-    membersInClan = getAllMembersTagSupposedlyInClan(cursor)
-    for memberTag in membersInClan:
-        member_tag = memberTag[0]
-        member_joined_after_request_created = False
-        member_left_after_request_created = False
-        max_index = get_max_index_less_than_scanned_time(cursor, time_created)
-        query = '''SELECT MEMBERS.member_name, SCANNED_DATA.troops_donated_monthly, SCANNED_DATA.troops_received_monthly
-			FROM
-				SCANNED_DATA
-			INNER JOIN MEMBERS
-				ON MEMBERS.member_tag = SCANNED_DATA.member_tag
-			WHERE
-				SCANNED_DATA.scanned_data_index =(SELECT MAX(SCANNED_DATA.scanned_data_index) FROM SCANNED_DATA WHERE SCANNED_DATA.scanned_data_index <= ? AND SCANNED_DATA.member_tag = ?)
-			AND
-				SCANNED_DATA.member_tag = ?
-			'''
-        cursor.execute(query, (max_index, member_tag, member_tag))
-        donations_before = cursor.fetchall()
-        if len(donations_before) > 1:
-            # throw error here
-            resultDict['error'] = 'error 1'
-            return resultDict
-#			return 'before: {}: {}'.format(memberTag, donations_before)
-        elif len(donations_before) == 0:
-            member_joined_after_request_created = True
-            # this is when the member just joined
-
-        min_index = get_min_index_greater_than_scanned_time(
-            cursor, time_finished)
-        query = '''SELECT MEMBERS.member_name, SCANNED_DATA.troops_donated_monthly, SCANNED_DATA.troops_received_monthly
-			FROM
-				SCANNED_DATA
-			INNER JOIN MEMBERS
-				ON MEMBERS.member_tag = SCANNED_DATA.member_tag
-			WHERE
-				SCANNED_DATA.scanned_data_index = (SELECT MIN(SCANNED_DATA.scanned_data_index) FROM SCANNED_DATA WHERE SCANNED_DATA.scanned_data_index >= ? AND SCANNED_DATA.member_tag = ?)
-			AND
-				SCANNED_DATA.member_tag = ?
-			'''
-        cursor.execute(query, (min_index, member_tag, member_tag))
-        donations_after = cursor.fetchall()
-        if len(donations_after) == 0:
-            member_left_after_request_created = True
-        elif len(donations_after) != 1:
-            # throw error here
-            print(donations_after)
-            resultDict['error'] = 'error 2'
-            return resultDict
-#			return 'after: {}: {}'.format(memberTag, donations_before)
-
-        if member_joined_after_request_created and member_left_after_request_created:
-            print('whats happening')
-            resultDict['error'] = 'error 3'
-            return resultDict
-        elif member_joined_after_request_created:
-            donated_name = donations_after[0][0]
-            entry = {}
-            entry['tag'] = member_tag
-            entry['name'] = donated_name
-            entry['donated'] = donations_after[0][1]
-            entry['received'] = donations_after[0][2]
-            resultDict['joined_since_created'].append(entry)
-        elif member_left_after_request_created:
-            donated_name = donations_before[0][0]
-            entry = {}
-            entry['tag'] = member_tag
-            entry['name'] = donated_name
-            entry['donated'] = '?'
-            entry['received'] = '?'
-            resultDict['left_since_created'].append(entry)
-        else:
-            donated_name = donations_before[0][0]
-
-            donated_before_num = donations_before[0][1]
-            donated_after_num = donations_after[0][1]
-            donated = donated_after_num - donated_before_num
-
-            received_before_num = donations_before[0][2]
-            received_after_num = donations_after[0][2]
-            received = received_after_num - received_before_num
-
-            if donated != 0 or received != 0:
-                entry = {}
-                entry['tag'] = member_tag
-                entry['name'] = donated_name
-                entry['donated'] = donated
-                entry['received'] = received
-                resultDict['standard'].append(entry)
-
-    conn.close()
-    return resultDict
-
-
 def getMembersWithScoreUnderThreshold(threshold, extraRequiredPerAccount=200):
     #	conn = sqlite3.connect(db_file)
     #	print(sqlite3.version)
@@ -1724,11 +1699,15 @@ def getMembersWithPoorWarPerformance():
 
 def init():
     if __name__ == "__main__":
-        #	result = getMembersFromLastWar()
-        #result = getMembersWithScoreUnderThreshold(300)
-        #print(result)
-        # getMembersWithPoorWarPerformance()
-        # print("I'm running but have no tasks")
-        pass
+        with session_scope() as session:
+            database_accessor = DatabaseAccessor(session)
+            result = database_accessor.get_all_donated_or_received_in_time_frame(1548518784, 1548524700)
+            print(json.dumps(result, indent=4))
+            #	result = getMembersFromLastWar()
+            #result = getMembersWithScoreUnderThreshold(300)
+            #print(result)
+            # getMembersWithPoorWarPerformance()
+            # print("I'm running but have no tasks")
+            pass
 
 init()

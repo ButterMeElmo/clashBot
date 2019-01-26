@@ -7,12 +7,11 @@ import datetime
 import pytz
 from discord.ext import commands
 #import clashWebServer
-from ClashBot import FetchedDataProcessor, DatabaseAccessor, DateFetcherFormatter, SupercellDataFetcher, FetchedDataProcessorHelper, NoActiveClanWarLeagueWar, NoActiveClanWar, TraderAccountNotConfigured, TraderInvalidInput, TraderAccountNotConfigured
+from ClashBot import FetchedDataProcessor, DatabaseAccessor, DateFetcherFormatter, SupercellDataFetcher, FetchedDataProcessorHelper, NoActiveClanWarLeagueWar, NoActiveClanWar, TraderAccountNotConfigured, TraderInvalidInput, TraderAccountNotConfigured, DataToStringConverter
 from my_help_formatter import MyHelpFormatter, _default_help_command
 # import clashAccessData
 import config_strings
 # from MyHelpFormatter import , _default_help_command
-import clash_convert_data_to_string
 import json
 
 from ClashBot import session_scope
@@ -795,8 +794,10 @@ class ClanManagement:
             while last_updated_data_time < time_checking:
                 await asyncio.sleep(1)
 
-        result_dict = clashAccessData.getAllDonatedOrReceivedInTimeFrame(time_since_created, time_since_filled)
-        result_string = clashConvertDataToString.convert_donation_timeframe_results(result_dict)
+        with session_scope() as session:
+            database_accessor = DatabaseAccessor(session)
+            result_dict = database_accessor.get_all_donated_or_received_in_time_frame(time_since_created, time_since_filled)
+        result_string = DataToStringConverter.convert_donation_timeframe_results(result_dict)
         await discord_client.say(str(result_dict))
         await discord_client.say(result_string)
 
