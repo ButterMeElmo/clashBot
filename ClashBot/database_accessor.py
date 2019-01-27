@@ -605,6 +605,35 @@ class DatabaseAccessor:
         return new_results
 
     def get_all_donated_or_received_in_time_frame(self, time_created, time_finished, clan_tag=None):
+
+        results = self.get_all_donated_or_received_in_time_frame_raw(time_created, time_finished, clan_tag)
+
+        if 'error' in results:
+            return results['error']
+
+        standard = results['standard']
+        left_since_created = results['left_since_created']
+        joined_since_created = results['joined_since_created']
+        if len(standard) == 0 and len(left_since_created) == 0 and len(joined_since_created) == 0:
+            return "No-one seems to have donated in that timeframe that fits these requirements"
+
+        results_string = ""
+        if len(standard) > 0:
+            results_string += "These members donated the following amounts during this timeframe:\n"
+            for entry in standard:
+                results_string += "{}: {}\n".format(entry["name"], entry["donated"])
+        if len(joined_since_created) > 0:
+            results_string += "These members donated the following amounts during this timeframe (and are new members):\n"
+            for entry in joined_since_created:
+                results_string += "{}: {}\n".format(entry["name"], entry["donated"])
+        if len(left_since_created) > 0:
+            results_string += "These members left after the request was created so they may also have been responsible for filling it::\n"
+            for entry in left_since_created:
+                results_string += "{}: {}\n".format(entry["name"], entry["donated"])
+
+        return results_string
+
+    def get_all_donated_or_received_in_time_frame_raw(self, time_created, time_finished, clan_tag=None):
         if clan_tag is None:
             clan_tag = self.my_clan_tag
 

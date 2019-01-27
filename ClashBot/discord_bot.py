@@ -7,7 +7,7 @@ import datetime
 import pytz
 from discord.ext import commands
 #import clashWebServer
-from ClashBot import FetchedDataProcessor, DatabaseAccessor, DateFetcherFormatter, SupercellDataFetcher, FetchedDataProcessorHelper, NoActiveClanWarLeagueWar, NoActiveClanWar, TraderAccountNotConfigured, TraderInvalidInput, TraderAccountNotConfigured, DataToStringConverter
+from ClashBot import FetchedDataProcessor, DatabaseAccessor, DateFetcherFormatter, SupercellDataFetcher, FetchedDataProcessorHelper, NoActiveClanWarLeagueWar, NoActiveClanWar, TraderAccountNotConfigured, TraderInvalidInput, TraderAccountNotConfigured, ContentCreator
 from my_help_formatter import MyHelpFormatter, _default_help_command
 # import clashAccessData
 import config_strings
@@ -822,9 +822,7 @@ class ClanManagement:
 
         with session_scope() as session:
             database_accessor = DatabaseAccessor(session)
-            result_dict = database_accessor.get_all_donated_or_received_in_time_frame(time_since_created, time_since_filled)
-        result_string = DataToStringConverter.convert_donation_timeframe_results(result_dict)
-        await discord_client.say(str(result_dict))
+            result_string = database_accessor.get_all_donated_or_received_in_time_frame(time_since_created, time_since_filled)
         await discord_client.say(result_string)
 
     @commands.command(name='getallmemberswithoutdiscord', pass_context=True)
@@ -869,6 +867,17 @@ class ClanManagement:
             await discord_client.on_member_join(discord_id)
         else:
             await discord_client.say('Failed to find the mention')
+
+    @commands.command(name='createdonationgraphs', pass_context=True)
+    @commands.has_role("developers")
+    async def create_donation_graphs(self, ctx):
+        await discord_client.say('Working on it...')
+        try:
+            content_creator = ContentCreator()
+            url = content_creator.generate_donation_webpage()
+            await discord_client.say(url)
+        except:
+            await discord_client.say('An error occurred while generating the donation graphs.')
 
     # @commands.command(name='givememberwarpermissions', pass_context=True)
     # @commands.has_role("developers")

@@ -2,12 +2,16 @@ aiohttp==1.0.5
 async-timeout==3.0.1
 atomicwrites==1.2.1
 attrs==18.2.0
+boto3==1.9.86
+botocore==1.12.86
 certifi==2018.10.15
 chardet==3.0.4
 coverage==4.5.2
 cycler==0.10.0
 discord.py==0.16.12
+docutils==0.14
 idna==2.7
+jmespath==0.9.3
 kiwisolver==1.0.1
 matplotlib==3.0.2
 more-itertools==4.3.0
@@ -20,6 +24,7 @@ pytest==3.10.0
 python-dateutil==2.7.3
 pytz==2018.5
 requests==2.20.1
+s3transfer==0.1.13
 six==1.11.0
 SQLAlchemy==1.2.14
 urllib3==1.24.1
