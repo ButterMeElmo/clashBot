@@ -158,6 +158,16 @@ async def say(ctx):
         await discord_client.say('Failed to find the mention')
 
 
+@discord_client.command(pass_context=True)
+@commands.has_role("developers")
+async def clear(ctx):
+
+    await discord_client.say('How many messages should I delete (max of 98)?')
+    message = await discord_client.wait_for_message(author=ctx.message.author)
+    amount = int(message.content) + 3
+    await discord_client.purge_from(ctx.message.channel, limit=amount)
+
+
 class AccountManagement:
 
     # @commands.command(name='removeaccountsrelatedto', pass_context=True)
