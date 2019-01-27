@@ -142,6 +142,22 @@ async def updatesupercellkey(ctx):
         await discord_client.say('Failed.')
 
 
+@discord_client.command(pass_context=True)
+@commands.has_role("developers")
+async def say(ctx):
+
+    await discord_client.say('What channel would you like me to talk in?')
+    message = await discord_client.wait_for_message(author=ctx.message.author)
+
+    if len(message.channel_mentions) > 0:
+        channel_to_send_to = message.channel_mentions[0]
+        await discord_client.say('What would you like to say?')
+        message = await discord_client.wait_for_message(author=ctx.message.author)
+        await discord_client.send_message(channel_to_send_to, message.content)
+    else:
+        await discord_client.say('Failed to find the mention')
+
+
 class AccountManagement:
 
     # @commands.command(name='removeaccountsrelatedto', pass_context=True)
