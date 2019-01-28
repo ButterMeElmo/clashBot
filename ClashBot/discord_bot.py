@@ -874,7 +874,7 @@ class ClanManagement:
         await discord_client.say('Working on it...')
         try:
             content_creator = ContentCreator()
-            url = content_creator.generate_donation_webpage()
+            url = await discord_client.loop.run_in_executor(None, content_creator.generate_donation_webpage)
             await discord_client.say(url)
         except:
             await discord_client.say('An error occurred while generating the donation graphs.')
