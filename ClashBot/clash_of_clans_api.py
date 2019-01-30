@@ -67,3 +67,13 @@ class ClashOfClansAPI:
         if response.status_code != 200:
             raise Exception('players/membertag failed with status code: {} and body: {}'.format(response.status_code, response.text))
         return json.loads(response.text)
+
+    def get_api(self):
+        headers = {'authorization': 'Bearer {}'.format(self.token)}
+        url = 'https://api.clashofclans.com/v1/'
+        response = requests.get(url, headers=headers)
+        if response.status_code != 200:
+            raise Exception('get_api failed with status code: {} and body: {}'.format(response.status_code, response.text))
+        return response.text
+
+
