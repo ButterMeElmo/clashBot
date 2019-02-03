@@ -1234,7 +1234,8 @@ async def send_out_trader_reminders():
                     if member is None:
                         await discord_client.send_message(bot_channel, '{} would have gotten something, but seems to have left the server.'.format(account_name))
                     else:
-                        await discord_client.send_message(bot_channel, 'Hey {}, {} gets a {} today!'.format(member.nick, account_name, item))
+                        discord_name = member.nick if member.nick else member.name
+                        await discord_client.send_message(bot_channel, 'Hey {}, {} gets a {} today!'.format(discord_name, account_name, item))
                     await asyncio.sleep(1)
 
 
