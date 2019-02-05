@@ -153,7 +153,7 @@ class DatabaseAccessor:
         else:
             print('make me sort descending please!')
             war_end_time = war_end_time
-            hours_remaining_reminder = [6, 3, 1]
+            hours_remaining_reminder = [6, 5, 4, 3, 2, 1]
             results = []
             for hour_reminder in hours_remaining_reminder:
                 this_timestamp = war_end_time - (hour_reminder * 3600)
