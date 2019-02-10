@@ -933,9 +933,10 @@ class TraderShop:
         else:
             hit_check = (result.reaction.emoji == config_strings.checkmark)
         if hit_check:
-            await self.set_trader_day(ctx)
-            await discord_client.say("Be on the lookout for any reminders about free/high value items!")
-        else:
+            set_day = await self.set_trader_day(ctx)
+            if set_day is True:
+                await discord_client.say("Be on the lookout for any reminders about free/high value items!")
+        if not hit_check or (hit_check and not set_day):
             await discord_client.say("Exiting. Please feel free to restart!")
 
     async def set_trader_day(self, ctx):
@@ -967,7 +968,7 @@ class TraderShop:
                         await discord_client.say("This was not valid input.")
                         return
                     await discord_client.say("Trader day set!")
-                    break
+                    return True
             if not selected:
                 await discord_client.say("You didn't select an account to check")
 
@@ -999,7 +1000,7 @@ class TraderShop:
                 await discord_client.say("You didn't select an account to check")
 
     @commands.command(name='settradernotificationtime', pass_context=True)
-    @commands.has_role("members")
+    @commands.has_role("developers")
     async def set_notification_time(self, ctx):
         discord_id = ctx.message.author.id
         dt = DateFetcherFormatter.get_utc_date_time()
@@ -1032,14 +1033,6 @@ class TraderShop:
     @commands.has_role("developers")
     async def disable_notifications(self, ctx):
         pass
-
-    @commands.command(name='seetraderrotation', pass_context=True)
-    @commands.has_role("members")
-    async def see_trader_rotation(self, ctx):
-        with session_scope() as session:
-            database_accessor = DatabaseAccessor(session)
-            trader_cycle_url = database_accessor.get_trader_cycle_url()
-            await discord_client.say(trader_cycle_url)
 
 
 trader_shop_cog = TraderShop()
