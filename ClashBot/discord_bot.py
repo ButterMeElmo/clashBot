@@ -929,12 +929,14 @@ class TraderShop:
         result = await discord_client.wait_for_reaction([config_strings.checkmark, config_strings.xmark], message=message, user=ctx.message.author, timeout=120)
         # if result is none, the bot didn't get a reaction in time
         if result is None:
+            hit_check = False
+        else:
             hit_check = (result.reaction.emoji == config_strings.checkmark)
-            if hit_check:
-                await self.set_trader_day(ctx)
-                await discord_client.say("Be on the lookout for any reminders about free/high value items!")
-                return
-        await discord_client.say("Exiting. Please feel free to restart!")
+        if hit_check:
+            await self.set_trader_day(ctx)
+            await discord_client.say("Be on the lookout for any reminders about free/high value items!")
+        else:
+            await discord_client.say("Exiting. Please feel free to restart!")
 
     async def set_trader_day(self, ctx):
         discord_id = ctx.message.author.id
