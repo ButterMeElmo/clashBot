@@ -314,6 +314,7 @@ class AccountManagement:
             await discord_client.send_message(bot_channel, "Failed to apply roles")
 
         introduction_string = 'Your account(s) are all set up!\n'
+        introduction_string += 'Run !help to see all commands available to you, such as !setuptrader which allows you to get notified when you have free or high value items available in the trader shop.\n'
         introduction_string += 'During war, you may use @troopdonators to request troops for war.\n'
         rules_channel = server.get_channel(rulesChannelID)
         introduction_string += 'Please see {} for the clan rules.\n'.format(rules_channel.mention)
