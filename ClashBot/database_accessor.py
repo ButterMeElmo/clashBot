@@ -719,6 +719,7 @@ class DatabaseAccessor:
 
         members_in_clan = self.session.query(MEMBER) \
             .filter(MEMBER.clan_tag == clan_tag) \
+            .order_by(func.lower(MEMBER.member_name).asc()) \
             .all()
 
         for member in members_in_clan:

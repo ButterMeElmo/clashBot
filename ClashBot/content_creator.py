@@ -26,11 +26,15 @@ class ContentCreator:
             self.output_dir = "output"
 
     def generate_donation_webpage(self, create_for_s3=True):
-        image_file_names = self.create_donation_graphs()
-        webpage_file_name = self.create_donation_webpage(image_file_names, create_for_s3=create_for_s3)
-        self.upload_images_to_s3(image_file_names)
-        self.upload_webpages_to_s3([webpage_file_name])
-        return "https://s3.amazonaws.com/{}/{}/{}".format(self.s3_bucket_name, self.s3_key_charts, self.donated_charts_webpage_name)
+        try:
+            image_file_names = self.create_donation_graphs()
+            webpage_file_name = self.create_donation_webpage(image_file_names, create_for_s3=create_for_s3)
+            self.upload_images_to_s3(image_file_names)
+            self.upload_webpages_to_s3([webpage_file_name])
+            output = "https://s3.amazonaws.com/{}/{}/{}".format(self.s3_bucket_name, self.s3_key_charts, self.donated_charts_webpage_name)
+        except:
+            output = "There was an error creating these graphs."
+        return output
 
     def create_donation_graphs(self):
 
@@ -71,7 +75,7 @@ class ContentCreator:
                 image_source = "https://s3.amazonaws.com/{}/{}/{}".format(self.s3_bucket_name, self.s3_key_charts, s3_file_name)
             else:
                 absolute_path = "{}/{}".format(Path().absolute(), self.output_dir)
-                image_source = "{}/{}.{}".format(absolute_path, url_safe_name)
+                image_source = "{}/{}".format(absolute_path, url_safe_name)
             print(image_source)
             html_code += "<img src={}></img>".format(image_source)
         html_code += """</body>"""
