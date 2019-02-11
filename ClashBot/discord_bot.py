@@ -900,6 +900,19 @@ class ClanManagement:
         except:
             await discord_client.say('An error occurred while generating the donation graphs.')
 
+    @commands.command(name="createwarperformancereport", pass_context=True)
+    @commands.has_role("developers")
+    async def create_war_performance_report(self):
+        await discord_client.say('Working on it...')
+        try:
+            report_generator = ReportGenerator()
+            pages = await discord_client.loop.run_in_executor(None, report_generator.generate_war_performance_report)
+            for page in pages:
+                await discord_client.say(page)
+                await asyncio.sleep(1)
+        except Exception:
+            await discord_client.say('An error occurred while generating the war performance report.')
+
     # @commands.command(name='givememberwarpermissions', pass_context=True)
     # @commands.has_role("developers")
     # async def give_member_war_permissions(self, ctx):

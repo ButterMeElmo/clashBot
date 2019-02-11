@@ -432,10 +432,11 @@ class FetchedDataProcessor:
                     print('change this status string too...')
                     printed_already = True
 
-                # add the war participation if it doesn't exist yet.
+                # add the war participation if it exists
                 if war_instance.clan_war_identifier in member_instance.war_participations:
                     war_participation_instance = member_instance.war_participations[war_instance.clan_war_identifier]
                 else:
+                    # otherwise create it
                     war_participation_instance = WARPARTICIPATION()
                     war_participation_instance.war = war_instance
                     war_participation_instance.member = member_instance
