@@ -6,7 +6,7 @@
         },
         {
             "title":"How do I get elder/co-leader?",
-            "description":"\n\n-In order to get/keep elder you should donate 350+ a season and be consistent in war, as well as follow the clan games requirements, below.\n\n-In order to get/keep co-leader you should donate 1000+ a season, be consistent in war, and be helpful to other clan members (good advice, etc), as well as follow the clan games requirements, below.\n\n-These promotions will be re-checked monthly, so make sure that once you have a title, you continue to contribute so you can keep the promotion!",
+            "description":"-In order to get/keep elder you should donate 350+ a season and be consistent in war, as well as follow the clan games requirements, below.\n\n-In order to get/keep co-leader you should donate 1000+ a season, be consistent in war, and be helpful to other clan members (good advice, etc), as well as follow the clan games requirements, below.\n\n-These promotions will be re-checked monthly, so make sure that once you have a title, you continue to contribute so you can keep the promotion!",
             "color":3066993
         },
         {
@@ -16,48 +16,43 @@
         },
         {
             "title":"What exactly does it mean to be consistent in war?",
-            "description":"-Participate in at least the clan-wide wars, and preferably all wars when your heroes are up.\n\n-Use both attacks every war.\n\nIf you may not be able to use both attacks, just opt out.\n\n-Get your attacks in quickly for war. Aim to have your first attack in within the first 6 hours, but definitely have it in within 12 hours.\n\n-Do NOT rush your attacks in during the last 6 hours of war. That makes it hard to plan everyone's attacks.\n\n-Use your attacks intelligently, consider where other people have left to attack.\n\n-Know your own strength and skill. Most attacks should end in 3 stars.\n\n-Ignore the base that Supercell recommends you attack. Attack above or below your rank as needed to get 3 stars.",
+            "description":"-Participate in at least the clan-wide wars, and preferably all wars when your heroes are up.\n\n-Use both attacks every war.\n\n-If you may not be able to use both attacks, opt out.\n\n-If you have a hero down, opt out.\n\n-Get your attacks in early for war. Try to get your first done within 12 hours.\n\n-Do NOT rush your attacks in during the last 6 hours of war. That makes it hard to plan everyone's attacks. We will sit the late attackers.\n\n-Use your attacks intelligently, consider where other people have left to attack.\n\n-Know your own strength and skill. Most attacks should end in 3 stars.\n\n-Ignore the base that Supercell recommends you attack. Attack above or below your rank as needed to get 3 stars.",
             "color":3066993
-        },
-        {
-            "title":"New war rules to continue our success:",
-            "description":"-Respond to war reminders in Discord so we know you see them.\n\n-If your hero is above level 5 and is down for upgrading, opt out of war. Many of the high level people here have mini accounts for this reason. We don't want to take the fun out of the game, but it hurts us to have a hero missing.",
-            "color":3447003
         },
         {
             "title":"Minimum hero level requirements before upgrading Town Hall",
             "description":"-You must be sure to level up your heroes. They are your strongest troops.\n\n-Before going to TH 9, your King must be level 5 or higher.\n\n-Before going to TH 10, your King and Queen must be level 20 or higher.\n\n-Before going to TH 11, your King and Queen must be level 25 or higher.\n\n-Before going to TH 12, your King and Queen must be level 35 or higher and your Warden should be 20.",
-            "color":3066993
+            "color":3447003
         },
         {
             "title":"Upgrading Town Halls/New Defenses (top 15 members in CWL)",
-            "description":"-If you're one of our top 15 members for CWL, we want you to be as strong as possible, overall. This means that you should drop all defenses as you also upgrade offense.\n\n",
-            "color":3447003
-        },
-        {
-            "title":"Upgrading Town Halls/New Defenses (everyone else)",
-            "description":"-When upgrading to TH 9, please refrain from building X-bows until you have a chance to upgrade enough offensive troops to easily handle them in war.\n\n-Similarly, when upgrading to TH 10, do not build infernos for a while.\n\n-At TH 11, don't build the EA for a while either.\n\n-In general, focus on your offensive upgrades first (lab, spell factory, army camps, clan castle, barracks, heroes etc) over defensive upgrades (cannon, mortar, wiz tower, etc.) The best rule is to drop a defense when you feel you can consistently 3 star your own base.",
+            "description":"-If you're one of our top 15 members for CWL, we want you to be as strong as possible, both offensively and defensively. This means that you should drop all defenses as you also upgrade offense.\n\n",
             "color":3066993
         },
         {
-            "title":"Clan Games",
-            "description":"-We currently are demolishing clan games. Put simply- don't be a moocher, but for now we don't have hard requirements.",
+            "title":"Upgrading Town Halls/New Defenses (everyone else)",
+            "description":"*-This section doesn't apply to top CWL members. See rule titles.*\n\n-When upgrading to TH 9, please refrain from building X-bows until you have a chance to upgrade enough offensive troops to easily handle them in war.\n\n-Similarly, when upgrading to TH 10, do not build infernos for a while.\n\n-At TH 11, don't build the EA for a while either.\n\n-In general, focus on your offensive upgrades first (lab, spell factory, army camps, clan castle, barracks, heroes etc) over defensive upgrades (cannon, mortar, wiz tower, etc.) The best rule is to drop a defense when you feel you can consistently 3 star your own base.",
             "color":3447003
+        },
+        {
+            "title":"Clan Games",
+            "description":"-We are finishing clan games very quickly, so we have no hard requirements. Just don't be a moocher.",
+            "color":3066993
         },
         {
             "title":"Troop Request/Donation Etiquette",
             "description":"-Unless for war or for a Clash Event, don't constantly request troops that you cannot make. Max wiz/giants/archers/hogs are great!\n\n-Respect all troop requests.\n\n-For war, only donate troops if you have max troops, unless the attacker says that it is ok.\n\n-Never donate to the war map unless you have cleared it with a co-leader or have been asked to help.",
-            "color":3066993
+            "color":3447003
         },
         {
             "title":"Clan Conduct",
             "description":"-Do not spam the chat. Having a conversation is fine, but we also don't want to remove active donation requests.\n\n-This is an English speaking clan, so please refrain from using other languages as those exclude members from your conversation.\n\n-This is a kid friendly clan, so please limit bad language.\n\n-No begging for elder or co. You can politely message me if you believe you've been overlooked for a promotion or other issue.",
-            "color":3447003
+            "color":3066993
         },
         {
             "title":"Closing thoughts",
             "description":"-If you're not getting discord notifications when tagged, please turn them on! I can remove you from @troopdonators if you want out.\n\n-There is nothing wrong with asking other clan members for advice. Similarly, failing attacks does happen, but make sure to learn from it, and not just immediately close the app never to review what you did wrong. If you can’t figure it out, ask others for feedback!\n\n-Finally, this clan is a clan made great by the members in it. If you have any suggestions, criticism, or any other form of feedback, please let me know!",
-            "color":3066993
+            "color":3447003
         }  
     ]
 }
