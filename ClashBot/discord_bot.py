@@ -913,6 +913,22 @@ class ClanManagement:
         except Exception:
             await discord_client.say('An error occurred while generating the war performance report.')
 
+    @commands.command(name="createstrengthreport", pass_context=True)
+    @commands.has_role("developers")
+    async def create_member_strength_performance_report(self):
+        await discord_client.say('Working on it...')
+        try:
+            report_generator = ReportGenerator()
+            pages = await discord_client.loop.run_in_executor(None, report_generator.generate_war_strengths_report)
+            for page in pages:
+                await discord_client.say(page)
+                await asyncio.sleep(1)
+        except Exception:
+            await discord_client.say('An error occurred while generating the war performance report.')
+            # why does client.say() not work here?
+            bot_channel = discord_client.get_channel(botChannelID)
+            await discord_client.send_message(bot_channel, 'An error occurred while generating the war strength report.')
+
     # @commands.command(name='givememberwarpermissions', pass_context=True)
     # @commands.has_role("developers")
     # async def give_member_war_permissions(self, ctx):

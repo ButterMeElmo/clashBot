@@ -27,3 +27,23 @@ class ReportGenerator:
         output_pages.append(current_page)
 
         return output_pages
+
+    def generate_war_strengths_report(self):
+
+        with session_scope() as session:
+            database_accessor = DatabaseAccessor(session)
+            member_strength_data = database_accessor.get_member_strengths()
+
+        output_pages = []
+        current_page = ""
+        for entry in member_strength_data:
+            entry_string = json.dumps(entry, indent=4)
+            combined_length = len(current_page) + len(entry_string)
+            if combined_length <= self.max_message_size:
+                current_page += entry_string + "\n"
+            else:
+                output_pages.append(current_page)
+                current_page = entry_string
+        output_pages.append(current_page)
+
+        return output_pages
