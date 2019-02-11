@@ -1,5 +1,6 @@
 from .meta import *
 
+
 class CLANGAME(Base):
     __tablename__ = 'CLAN_GAMES'
 

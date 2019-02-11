@@ -1,26 +1,16 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import sqlite3
-from sqlite3 import Error
-import time
-import dateutil.parser as dp
-import json
-import random
-import unittest
-import pytz
 import datetime
-import dateutil
-import date_fetcher_formatter
-import config_strings
+import json
+import pytz
 
-from ClashBot import DateFetcherFormatter, session_scope
-from ClashBot.models import DISCORDCLASHLINK, MEMBER, WARATTACK, WAR, DISCORDACCOUNT, WARPARTICIPATION, TRADERDATA, TRADERITEM, SCANNEDDATA
+from ClashBot import DateFetcherFormatter
+from ClashBot.models import *
 
 from sqlalchemy.sql.expression import func
 
 db_file = "clashData.db"
-#currentSeasonIDs = {}
 
 
 class NoDataDuringTimeSpanException(Exception):
@@ -45,6 +35,9 @@ class TraderAccountNotConfigured(Exception):
 
 class DatabaseAccessor:
 
+    SUCCESSFULLY_LINKED_STRING = "This account was linked!"
+    UNABLE_TO_FIND_ACCOUNT_STRING = "This account seems to not exist"
+
     def __init__(self, session):
 
         self.session = session
@@ -59,10 +52,10 @@ class DatabaseAccessor:
             clan_tag = self.my_clan_tag
 
         discord_clash_links = self.session.query(DISCORDCLASHLINK) \
-                    .join(MEMBER) \
-                    .filter(MEMBER.town_hall_level == 12) \
-                    .filter(MEMBER.clan_tag == clan_tag) \
-                    .all()
+            .join(MEMBER) \
+            .filter(MEMBER.town_hall_level == 12) \
+            .filter(MEMBER.clan_tag == clan_tag) \
+            .all()
 
         actual_results = set()
 
@@ -228,7 +221,7 @@ class DatabaseAccessor:
         member_instances = member_query.all()
 
         if len(member_instances) == 0:
-            return config_strings.unable_to_find_account_string
+            return DatabaseAccessor.UNABLE_TO_FIND_ACCOUNT_STRING
 
         if len(member_instances) > 1:
             print('Multiple accounts matched while linking, better fix this')
@@ -250,7 +243,7 @@ class DatabaseAccessor:
         for clash_links in discord_account_instance.discord_clash_links:
             if clash_links.clash_account == member_instance:
                 print('This account is already linked, should change this :)')
-                return config_strings.successfully_linked_string
+                return DatabaseAccessor.SUCCESSFULLY_LINKED_STRING
 
         discord_clash_link = DISCORDCLASHLINK()
         discord_clash_link.discord_account = discord_account_instance
@@ -259,7 +252,7 @@ class DatabaseAccessor:
 
         self.session.add(discord_account_instance)
 
-        return config_strings.successfully_linked_string
+        return DatabaseAccessor.SUCCESSFULLY_LINKED_STRING
 
     def has_linked_account_with_th_larger_than(self, discord_id, th_level_to_check_for):
 
@@ -278,7 +271,7 @@ class DatabaseAccessor:
                 .one_or_none()
 
         if result == -1:
-            return  False
+            return False
         return True
 
     def get_members_in_clan(self, clan_tag=None):
@@ -287,10 +280,10 @@ class DatabaseAccessor:
             clan_tag = self.my_clan_tag
 
         results = self.session.query(DISCORDACCOUNT) \
-                                    .join(DISCORDCLASHLINK) \
-                                    .join(MEMBER) \
-                                    .filter(MEMBER.clan_tag == clan_tag) \
-                                    .all()
+            .join(DISCORDCLASHLINK) \
+            .join(MEMBER) \
+            .filter(MEMBER.clan_tag == clan_tag) \
+            .all()
 
         actual_results = {}
 
@@ -366,7 +359,7 @@ class DatabaseAccessor:
 
     def get_trader_current_day_no_offset(self):
         # get the time used for the calculations
-        base_day_timestamp = self.session.query(TRADERDATA.value).filter(TRADERDATA.id==1).scalar()
+        base_day_timestamp = self.session.query(TRADERDATA.value).filter(TRADERDATA.id == 1).scalar()
 
         # get the trader cycle length
         trader_cycle_length = self.get_trader_cycle_length()
@@ -382,10 +375,10 @@ class DatabaseAccessor:
         return current_cycle_no_offset, trader_cycle_length
 
     def get_trader_cycle_length(self):
-        return self.session.query(TRADERDATA.value).filter(TRADERDATA.id==2).scalar()
+        return self.session.query(TRADERDATA.value).filter(TRADERDATA.id == 2).scalar()
 
     def set_trader_time_for_discord_id(self, discord_id, hour):
-        discord_instance = self.session.query(DISCORDACCOUNT).filter(DISCORDACCOUNT.discord_tag==discord_id).one()
+        discord_instance = self.session.query(DISCORDACCOUNT).filter(DISCORDACCOUNT.discord_tag == discord_id).one()
         discord_instance.trader_shop_reminder_hour = hour
 
     def set_trader_day_for_member(self, member_instance, current_trader_day):
@@ -478,6 +471,7 @@ class DatabaseAccessor:
 
         return results
 
+    # noinspection PyMethodMayBeStatic
     def get_trader_cycle_url(self):
         # todo load this into db
         return "https://www.reddit.com/r/ClashOfClans/comments/a5hx4z/misc_trader_cycle_after_the_december_2018_update/"
@@ -495,7 +489,7 @@ class DatabaseAccessor:
             .join(DISCORDACCOUNT) \
             .filter(DISCORDACCOUNT.discord_tag == discord_id)
         if currently_in_clan_only:
-            query = query.filter(MEMBER.clan_tag==clan_tag)
+            query = query.filter(MEMBER.clan_tag == clan_tag)
         account_list = query.all()
         return account_list
 
@@ -508,7 +502,6 @@ class DatabaseAccessor:
         timestamp_to_get_donations_since = (DateFetcherFormatter.get_utc_date_time() - datetime.timedelta(days=num_days)).timestamp()
         # last_week_timestamp = 0
         max_y = 0
-        max_diff = 0
         min_x = DateFetcherFormatter.get_utc_timestamp()
         max_x = 0
         for member in members_in_clan:
@@ -545,7 +538,7 @@ class DatabaseAccessor:
             .filter(SCANNEDDATA.timestamp > timestamp) \
             .all()
 
-        # culmulative
+        # cumulative
         # initial_datapoint = results[0].troops_donated_achievement
         # results = [(x.timestamp, (x.troops_donated_achievement - initial_datapoint)) for x in results]
         # return results
@@ -579,20 +572,23 @@ class DatabaseAccessor:
         left_since_created = results['left_since_created']
         joined_since_created = results['joined_since_created']
         if len(standard) == 0 and len(left_since_created) == 0 and len(joined_since_created) == 0:
-            return "No-one seems to have donated in that timeframe that fits these requirements"
+            return "No-one seems to have donated in that time-frame that fits these requirements"
 
         results_string = ""
         if len(standard) > 0:
-            results_string += "These members donated the following amounts during this timeframe:\n"
+            results_string += "These members donated the following amounts during this time frame:\n"
             for entry in standard:
+                # noinspection PyTypeChecker
                 results_string += "{}: {}\n".format(entry["name"], entry["donated"])
         if len(joined_since_created) > 0:
-            results_string += "These members donated the following amounts during this timeframe (and are new members):\n"
+            results_string += "These members donated the following amounts during this time frame (and are new members):\n"
             for entry in joined_since_created:
+                # noinspection PyTypeChecker
                 results_string += "{}: {}\n".format(entry["name"], entry["donated"])
         if len(left_since_created) > 0:
             results_string += "These members left after the request was created so they may also have been responsible for filling it::\n"
             for entry in left_since_created:
+                # noinspection PyTypeChecker
                 results_string += "{}: {}\n".format(entry["name"], entry["donated"])
 
         return results_string
@@ -798,8 +794,10 @@ class DatabaseAccessor:
             })
         return output
 
+
 def init():
     if __name__ == "__main__":
         pass
+
 
 init()

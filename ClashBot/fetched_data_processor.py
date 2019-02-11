@@ -1,30 +1,15 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import time
-import dateutil.parser as dp
-import json
-import random
-import unittest
-import pytz
 import datetime
 import dateutil
+import json
 import os
-import math
+import pytz
+import time
 
 from ClashBot import DateFetcherFormatter, SupercellDataFetcher
-from ClashBot.models import ACCOUNTNAME, CLAN, MEMBER, SCANNEDDATA, WAR, WARATTACK, CLANGAME, SEASON, \
-    CALCULATEDTROOPSSPELLSSIEGE, SEASONHISTORICALDATA, CLANGAMESSCORE, WARPARTICIPATION, DISCORDACCOUNT, \
-    DISCORDCLASHLINK, LASTPROCESSED, TRADERDATA, TRADERITEM
-
-from sqlalchemy.sql.expression import func
-
-from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, scoped_session
-from sqlalchemy.engine import Engine
-from sqlalchemy import event
-from ClashBot.models.meta import Base
+from ClashBot.models import *
 
 from ClashBot import session_scope
 
@@ -32,20 +17,21 @@ printed_already = False
 
 count_to_get_to = 0
 
+
 class FetchedDataProcessorHelper:
 
     @staticmethod
     def save_data_helper():
+        # this session_scope will commit if an exception is not thrown
         with session_scope() as session:
             fdp = FetchedDataProcessor(session)
             return fdp.save_data()
-
 
     @staticmethod
     def last_processed_time_helper():
         with session_scope() as session:
             fdp = FetchedDataProcessor(session)
-            return fdp.session.query(LASTPROCESSED.time).filter(LASTPROCESSED.id==1).scalar()
+            return fdp.session.query(LASTPROCESSED.time).filter(LASTPROCESSED.id == 1).scalar()
 
 
 class FetchedDataProcessor:
@@ -58,7 +44,6 @@ class FetchedDataProcessor:
             self.app_config = json.load(infile)
             self.clan_tag_to_scan = self.app_config["my_clan_tag"]
             self.data_directory = self.app_config["data_directory"]
-
 
         if not os.path.exists(self.data_directory):
             print('No data to load')
@@ -95,6 +80,7 @@ class FetchedDataProcessor:
         # todo where should this live
     def convert_supercell_timestamp_string_to_epoch(self, time_as_string):
         # print("inputting as as string: {}".format(time_as_string))
+        # noinspection PyUnresolvedReferences
         timestamp = dateutil.parser.parse(time_as_string).timestamp()
         # print('outputting {}'.format(timestamp))
         return int(timestamp)
@@ -150,7 +136,6 @@ class FetchedDataProcessor:
                     elif hero_entry['name'] == 'Grand Warden':
                         warden_level = hero_entry['level']
 
-
             member_instance = self.session.query(MEMBER).filter(MEMBER.member_tag == member_tag).one_or_none()
             if member_instance is None:
                 member_instance = MEMBER()
@@ -173,6 +158,10 @@ class FetchedDataProcessor:
             # if member_name not in member_added.all_names:
             #     member.all_names.append(ACCOUNTNAME(account_name=member_name))
 
+            troops_donated_achievement = None
+            spells_donated_achievement = None
+            clan_games_points_achievement = None
+
             if 'achievements' in member_entry:
                 for achievements_entry in member_entry['achievements']:
                     if achievements_entry['name'] == 'Friend in Need':
@@ -182,7 +171,7 @@ class FetchedDataProcessor:
                     if achievements_entry['name'] == 'Games Champion':
                         clan_games_points_achievement = achievements_entry['value']
 
-            scanned_data_instance = self.session.query(SCANNEDDATA).filter(SCANNEDDATA.member_tag==member_tag).filter(SCANNEDDATA.timestamp==timestamp).one_or_none()
+            scanned_data_instance = self.session.query(SCANNEDDATA).filter(SCANNEDDATA.member_tag == member_tag).filter(SCANNEDDATA.timestamp == timestamp).one_or_none()
             if scanned_data_instance is None:
                 scanned_data_instance = SCANNEDDATA()
                 scanned_data_instance.member_tag = member_tag
@@ -278,7 +267,6 @@ class FetchedDataProcessor:
                 war["timestamp"] = entries["timestamp"]
                 # now, determine what members are in the war
                 self.process_clan_war_details(war, is_clan_war_league=True)
-
 
     def process_clan_war_league_files(self):
         count = 0
@@ -422,7 +410,7 @@ class FetchedDataProcessor:
             if clan_type == 'clan':
 
                 # ensure the member exists
-                member_instance = self.session.query(MEMBER).filter(MEMBER.member_tag==member_tag).one_or_none()
+                member_instance = self.session.query(MEMBER).filter(MEMBER.member_tag == member_tag).one_or_none()
                 if member_instance is None:
                     member_instance = MEMBER()
                     member_instance.member_tag = member_tag
@@ -444,7 +432,7 @@ class FetchedDataProcessor:
                     self.session.add(war_participation_instance)
                     # self.session.flush()
 
-                if war_participation_instance.is_clan_war_league_war == 2 and is_clan_war_league == True:
+                if war_participation_instance.is_clan_war_league_war == 2 and is_clan_war_league is True:
                     # if we get here, this was manually entered so this attack should already be created.
                     # This would be one that was manually entered and is now showing up on scans of data too.
                     war_participation_instance.is_clan_war_league_war = 1
@@ -582,7 +570,7 @@ class FetchedDataProcessor:
                 print("Creating dummy member")
                 dummy = MEMBER()
                 dummy.member_tag = clash_tag_looking_for
-                discord_clash_link_instance.clash_account = member
+                discord_clash_link_instance.clash_account = dummy
 
             discord_tag = discord_name['discord_id']
             discord_clash_link_instance.discord_account = discord_account_instances[discord_tag]
@@ -802,7 +790,7 @@ class FetchedDataProcessor:
                     received = entry.troops_received_monthly
                     attacks = entry.attacks_won
                     defenses = entry.defenses_won
-                    #				if donates < 100 and received < 100 and attacks < 5 and defenses < 5:
+                    # if donates < 100 and received < 100 and attacks < 5 and defenses < 5:
                     if donates < 100 and received < 100:
                         # this is probably a new season
                         new_season_vote += 1
@@ -815,7 +803,7 @@ class FetchedDataProcessor:
                     possible_updated_start_timestamp = timestamp
 
                     # this is where the reset should be
-                    if possible_updated_start_timestamp > season_start_time and possible_updated_start_timestamp < season_end_time:
+                    if season_start_time < possible_updated_start_timestamp < season_end_time:
                         print('this season seems to reset at the right time')
                         # nothing to do
                     else:
@@ -943,7 +931,6 @@ class FetchedDataProcessor:
     def get_min_allowable_time_for_clan_game_data(self, current_games_id):
         """
         This calculates the valid timestamp for the minimum acceptable value for clan games data
-        :param clan_game_data:
         :param current_games_id:
         :return:
         """
@@ -961,7 +948,6 @@ class FetchedDataProcessor:
     def get_max_allowable_time_for_clan_game_data(self, current_games_id):
         """
         This calculates the valid timestamp for the maximum acceptable value for clan games data
-        :param clan_game_data:
         :param current_games_id:
         :return:
         """
@@ -1055,7 +1041,7 @@ class FetchedDataProcessor:
     def mark_successful_save(self):
         # todo make this the last data time instead of when we processed
         time_to_set = DateFetcherFormatter.get_utc_timestamp()
-        previous_processed_time_instance = self.session.query(LASTPROCESSED).filter(LASTPROCESSED.id==1).one_or_none()
+        previous_processed_time_instance = self.session.query(LASTPROCESSED).filter(LASTPROCESSED.id == 1).one_or_none()
         if previous_processed_time_instance is None:
             previous_processed_time_instance = LASTPROCESSED()
             self.session.add(previous_processed_time_instance)
@@ -1109,12 +1095,8 @@ class FetchedDataProcessor:
         print('processing clan games data')
         self.process_clan_games_data()
 
-        print('marking save successful, then committing')
+        print('marking save successful')
         return self.mark_successful_save()
-
-        # save our changes
-        print('done, will attempt to commit')
-        # self.session.commit()
 
 
 def init():

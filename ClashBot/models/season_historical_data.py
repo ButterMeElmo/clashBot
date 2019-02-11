@@ -1,5 +1,6 @@
 from .meta import *
 
+
 class SEASONHISTORICALDATA(Base):
     __tablename__ = "SEASON_HISTORICAL_DATA"
     __table_args__ = (

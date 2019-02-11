@@ -1,5 +1,6 @@
 from .meta import *
 
+
 class LASTPROCESSED(Base):
     __tablename__ = 'LAST_PROCESSED'
 

@@ -1,7 +1,5 @@
 from .meta import *
 
-# from ClashBot.models import WAR, WARATTACK, MEMBER
-
 
 class WARPARTICIPATION(Base):
     __tablename__ = 'WAR_PARTICIPATIONS'

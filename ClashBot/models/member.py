@@ -1,7 +1,6 @@
 from .meta import *
 from sqlalchemy.orm.collections import attribute_mapped_collection
-from sqlalchemy.ext.associationproxy import association_proxy
-from ClashBot.models import WARPARTICIPATION, WARATTACK
+
 
 class MEMBER(Base):
     __tablename__ = 'MEMBERS'
@@ -26,18 +25,17 @@ class MEMBER(Base):
     clan_tag = Column(String(20), ForeignKey('CLANS.clan_tag'))
     clan = relationship("CLAN",
                         back_populates="members"
-                       )
+                        )
 
     # member_name = Column(String(20), ForeignKey('ACCOUNT_NAMES.account_name'))
     all_names = relationship(
-                                "ACCOUNTNAME",
-                                backref="member"
-                             )
+                             "ACCOUNTNAME",
+                             backref="member"
+                            )
     scanned_data = relationship("SCANNEDDATA",
                                 backref="member",
                                 collection_class=attribute_mapped_collection('timestamp')
                                 )
-
 
     # discord_clash_links = relationship("DISCORDCLASHLINK", back_populates="clash_account")
 
@@ -81,9 +79,9 @@ class MEMBER(Base):
 
     # don't use this one
     war_participations = relationship("WARPARTICIPATION",
-                                        back_populates="member",
-                                        collection_class=attribute_mapped_collection('war.clan_war_identifier')
-                                        )
+                                      back_populates="member",
+                                      collection_class=attribute_mapped_collection('war.clan_war_identifier')
+                                      )
 
     # wars_participated_in = association_proxy("war_participations", "war",
     #                                          creator=lambda _, war:

@@ -1,5 +1,5 @@
 from .meta import *
-from ClashBot.models import MEMBER
+
 
 class ACCOUNTNAME(Base):
     __tablename__ = 'ACCOUNT_NAMES'

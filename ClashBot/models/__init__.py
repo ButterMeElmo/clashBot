@@ -1,7 +1,23 @@
 __all__ = [
-           'CLAN',
-           'MEMBER'
-          ]
+        'WARPARTICIPATION',
+        'ADDORREMOVEFROMWARROSTER',
+        'CALCULATEDTROOPSSPELLSSIEGE',
+        'CLAN',
+        'CLANGAME',
+        'CLANGAMESSCORE',
+        'DISCORDACCOUNT',
+        'DISCORDCLASHLINK',
+        'LASTPROCESSED',
+        'WARATTACK',
+        'MEMBER',
+        'SCANNEDDATA',
+        'SEASONHISTORICALDATA',
+        'SEASON',
+        'WAR',
+        'ACCOUNTNAME',
+        'TRADERDATA',
+        'TRADERITEM',
+    ]
 
 from .meta import Base, metadata
 
@@ -17,7 +33,6 @@ from .last_processed import LASTPROCESSED
 from .war_attack import WARATTACK
 from .member import MEMBER
 from .scanned_data import SCANNEDDATA
-# from .scanned_data_time import SCANNEDDATATIME
 from .season_historical_data import SEASONHISTORICALDATA
 from .season import SEASON
 from .war import WAR

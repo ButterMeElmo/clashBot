@@ -1,6 +1,5 @@
 from .meta import *
 
-from ClashBot.models import DISCORDACCOUNT
 
 class DISCORDCLASHLINK(Base):
     __tablename__ = 'DISCORD_CLASH_LINKS'

@@ -1,5 +1,6 @@
 from .meta import *
 
+
 class DISCORDACCOUNT(Base):
     __tablename__ = 'DISCORD_ACCOUNTS'
 

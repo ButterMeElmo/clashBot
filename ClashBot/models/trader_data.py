@@ -1,5 +1,6 @@
 from .meta import *
 
+
 class TRADERDATA(Base):
     __tablename__ = 'TRADER_DATA'
 

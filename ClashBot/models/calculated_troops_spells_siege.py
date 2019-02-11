@@ -1,5 +1,6 @@
 from .meta import *
 
+
 class CALCULATEDTROOPSSPELLSSIEGE(Base):
     __tablename__ = 'CALCULATED_TROOPS_SPELLS_SIEGE'
     __table_args__ = (

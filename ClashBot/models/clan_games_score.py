@@ -1,5 +1,6 @@
 from .meta import *
 
+
 class CLANGAMESSCORE(Base):
     __tablename__ = 'CLAN_GAMES_SCORE'
     __table_args__ = (

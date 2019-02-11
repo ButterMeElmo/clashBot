@@ -1,5 +1,5 @@
 from .meta import *
-from sqlalchemy.ext.associationproxy import association_proxy
+
 
 class WAR(Base):
     __tablename__ = 'WARS'

@@ -1,5 +1,6 @@
 from .meta import *
 
+
 class ADDORREMOVEFROMWARROSTER(Base):
     __tablename__ = 'ADD_OR_REMOVE_FROM_WAR_ROSTER'
 

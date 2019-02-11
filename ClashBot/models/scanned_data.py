@@ -1,5 +1,6 @@
 from .meta import *
 
+
 class SCANNEDDATA(Base):
     __tablename__ = 'SCANNED_DATA'
     __table_args__ = (

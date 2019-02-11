@@ -32,7 +32,7 @@ class ContentCreator:
             self.upload_images_to_s3(image_file_names)
             self.upload_webpages_to_s3([webpage_file_name])
             output = "https://s3.amazonaws.com/{}/{}/{}".format(self.s3_bucket_name, self.s3_key_charts, self.donated_charts_webpage_name)
-        except:
+        except Exception:
             output = "There was an error creating these graphs."
         return output
 
@@ -69,6 +69,7 @@ class ContentCreator:
     def create_donation_webpage(self, file_names, create_for_s3=False):
         html_code = """<body>"""
         for file_name in file_names:
+            # noinspection PyUnresolvedReferences
             url_safe_name = urllib.parse.quote(file_name)
             if create_for_s3:
                 s3_file_name = url_safe_name.replace(" ", "+")

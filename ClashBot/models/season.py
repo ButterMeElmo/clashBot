@@ -1,5 +1,6 @@
 from .meta import *
 
+
 class SEASON(Base):
     __tablename__ = 'SEASONS'
     __table_args__ = (

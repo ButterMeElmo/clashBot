@@ -1,9 +1,6 @@
 import datetime
 import json
 import pytz
-import time
-
-from subprocess import call
 
 from ClashBot import DateFetcherFormatter
 from ClashBot import ClashOfClansAPI
