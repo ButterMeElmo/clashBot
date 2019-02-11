@@ -112,6 +112,26 @@ async def update_roles_command(ctx):
     except Exception:
         await discord_client.send_message(bot_channel, "Failed to apply roles")
 
+@discord_client.command(name="createrules", pass_context=True)
+@commands.has_role("developers")
+async def create_rules():
+    try:
+        bot_channel = discord_client.get_channel(botChannelID)
+        rules_channel = discord_client.get_channel(rulesChannelID)
+        await discord_client.send_message(bot_channel, "Creating rules")
+        with open('clanRules.json') as rules_files:
+            new_rules = json.load(rules_files)
+            # Most of the time, we will be modifying wording, so we want to delete and re-enter the same number of rules.
+            # We can always manually delete 1 or 2 extra manually if we delete rule categories.
+            async for x in discord_client.logs_from(rules_channel, limit=len(new_rules["Rules"])):
+                await discord_client.delete_message(x)
+            for x in new_rules["Rules"]:
+                x['type'] = 'rich'
+                new_embed = discord.Embed(**x)
+                await discord_client.send_message(rules_channel, embed=new_embed)
+            await discord_client.send_message(bot_channel, "Rules created!")
+    except Exception:
+        await discord_client.send_message(bot_channel, "Failed to create rules.")
 
 @discord_client.command(pass_context=True)
 @commands.has_role("developers")
@@ -1326,19 +1346,6 @@ async def war_reminders_loop():
             await asyncio.sleep(time_to_sleep)
             await send_out_war_reminders(next_war_timestamp_string)
 
-async def createRules():
-    rules_channel = discord_client.get_channel(rulesChannelID)
-    with open('clanRules.json') as rulesFiles:
-        new_rules = json.load(rulesFiles)
-        # Most of the time, we will be modifying wording, so we want to delete and re-enter the same number of rules.
-        # We can always manually delete 1 or 2 extra manually if we delete rule categories.
-        async for x in discord_client.logs_from(rules_channel, limit=len(new_rules["Rules"])):
-            await discord_client.delete_message(x)
-        for x in new_rules["Rules"]:
-            x['type'] = 'rich'
-            new_embed = discord.Embed(**x)
-            await discord_client.send_message(rules_channel, embed=new_embed)
-
 async def notify_if_cwl_roster_needs_set():
     war_channel = discord_client.get_channel(warChannelID)
     testing_channel = discord_client.get_channel(testingChannelID)
@@ -1382,7 +1389,6 @@ async def discord_bot_data_loop():
 
     discord_client.loop.create_task(trader_reminders_loop())
     discord_client.loop.create_task(war_reminders_loop())
-    # discord_client.loop.create_task(createRules())
 
     await discord_client.send_message(bot_channel, "Coming online")
 
