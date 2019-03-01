@@ -896,6 +896,26 @@ class ClanManagement:
             await discord_client.say(page)
             await asyncio.sleep(1)
 
+    @commands.command(name="createstrengthreportshort", pass_context=True)
+    @commands.has_role("developers")
+    async def create_member_strength_performance_report_short(self):
+        await discord_client.say('Working on it...')
+        report_generator = ReportGenerator()
+        pages = await discord_client.loop.run_in_executor(None, report_generator.generate_war_strengths_report_short)
+        for page in pages:
+            await discord_client.say(page)
+            await asyncio.sleep(1)
+
+    @commands.command(name="createstrengthreportextrashort", pass_context=True)
+    @commands.has_role("developers")
+    async def create_member_strength_performance_report_extra_short(self):
+        await discord_client.say('Working on it...')
+        report_generator = ReportGenerator()
+        pages = await discord_client.loop.run_in_executor(None, report_generator.generate_war_strengths_report_short, False)
+        for page in pages:
+            await discord_client.say(page)
+            await asyncio.sleep(1)
+
     # @commands.command(name='givememberwarpermissions', pass_context=True)
     # @commands.has_role("developers")
     # async def give_member_war_permissions(self, ctx):

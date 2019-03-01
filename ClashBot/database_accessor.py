@@ -681,7 +681,7 @@ class DatabaseAccessor:
 
         scores = {}
         for member in members_in_clan:
-            member_score = member.town_hall_level
+            member_score = 10 * (member.town_hall_level - 9)
             member_score += member.king_level
             member_score += member.queen_level
             member_score += member.warden_level
@@ -695,12 +695,13 @@ class DatabaseAccessor:
         for score in sorted(scores, reverse=True):
             for member in scores[score]:
                 output.append({
-                    "rank:": counter,
+                    "rank": counter,
                     "member_name": member.member_name,
                     "town_hall_level": member.town_hall_level,
                     "king_level": member.king_level,
                     "queen_level": member.queen_level,
-                    "grand_warden_level": member.warden_level
+                    "grand_warden_level": member.warden_level,
+                    "score": score,
                 })
                 counter += 1
 
